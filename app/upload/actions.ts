@@ -21,6 +21,43 @@ export async function uploadAttempt(formData: FormData) {
     redirect("/upload?error=Please choose both files.");
   }
 
+  // Tutors/admins can upload on behalf of a student by email instead of
+  // themselves. Resolve that to a student_id server-side -- never trust a
+  // student_id straight from the client -- and let RLS have the final word
+  // (attempts_insert's WITH CHECK already requires student_id = auth.uid()
+  // OR is_tutor(), so a non-tutor trying to spoof this field still fails).
+  const studentEmail = String(formData.get("student_email") ?? "").trim();
+  let studentId = user.id;
+
+  if (studentEmail) {
+    const { data: ownProfile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    const isTutorUser = (ownProfile as { role: string } | null)?.role !== "student";
+
+    if (!isTutorUser) {
+      redirect("/upload?error=Only tutors/admins can upload on behalf of another student.");
+    }
+
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", studentEmail.toLowerCase())
+      .maybeSingle();
+
+    if (!targetProfile) {
+      redirect(
+        `/upload?error=${encodeURIComponent(
+          `No student found with the email "${studentEmail}". They need to sign in at least once before you can upload for them.`
+        )}`
+      );
+    }
+
+    studentId = (targetProfile as { id: string }).id;
+  }
+
   // 1. Create the attempt row first so we have an id to namespace the files.
   // test_name/test_date are placeholders -- the parser reads the real values
   // off the saved page's own <title> and overwrites these once scoring
@@ -28,7 +65,7 @@ export async function uploadAttempt(formData: FormData) {
   const { data: attempt, error: insertError } = await supabase
     .from("attempts")
     .insert({
-      student_id: user.id,
+      student_id: studentId,
       test_name: "Processing…",
       test_date: new Date().toISOString().slice(0, 10),
     })
@@ -40,7 +77,7 @@ export async function uploadAttempt(formData: FormData) {
   }
 
   const attemptId = attempt!.id;
-  const basePath = `${user.id}/${attemptId}`;
+  const basePath = `${studentId}/${attemptId}`;
   const htmlPath = `${basePath}/details.html`;
   const pdfPath = `${basePath}/score_report.pdf`;
 

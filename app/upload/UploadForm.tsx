@@ -3,7 +3,13 @@
 import { useRef, useState, useTransition, type DragEvent, type ReactNode } from "react";
 import { uploadAttempt } from "./actions";
 
-export function UploadForm() {
+export function UploadForm({
+  isTutor = false,
+  students = [],
+}: {
+  isTutor?: boolean;
+  students?: { email: string; full_name: string | null }[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [fileNames, setFileNames] = useState<{ html?: string; pdf?: string }>({});
 
@@ -12,6 +18,30 @@ export function UploadForm() {
       action={(formData) => startTransition(() => uploadAttempt(formData))}
       className="mt-6 space-y-5 rounded-lg border border-gray-200 bg-white p-6"
     >
+      {isTutor && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Student email</label>
+          <input
+            name="student_email"
+            type="email"
+            required
+            list="student-emails"
+            placeholder="student@example.com"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          />
+          <datalist id="student-emails">
+            {students.map((s) => (
+              <option key={s.email} value={s.email}>
+                {s.full_name ?? s.email}
+              </option>
+            ))}
+          </datalist>
+          <p className="mt-1 text-xs text-gray-500">
+            Who this test is for. They need to have signed in at least once already.
+          </p>
+        </div>
+      )}
+
       <FileField
         name="score_report_pdf"
         label="Score Report PDF"
