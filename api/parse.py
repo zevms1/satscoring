@@ -12,6 +12,7 @@ this function is only ever meant to be called by our own Server Action.
 """
 import json
 import os
+import sys
 import tempfile
 import traceback
 from datetime import datetime, timezone
@@ -19,6 +20,11 @@ from http.server import BaseHTTPRequestHandler
 
 import requests
 
+# Vercel's Python runtime doesn't put this file's own directory on sys.path,
+# so a plain sibling import ("from sat_parser import ...") fails at deploy
+# time with ModuleNotFoundError even though sat_parser.py is bundled right
+# next to this file. Add it explicitly before importing.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sat_parser import build_report
 
 SUPABASE_URL = os.environ["NEXT_PUBLIC_SUPABASE_URL"].rstrip("/")
