@@ -116,9 +116,13 @@ export function AttemptsTable({
               <td className="px-4 py-3 text-sm text-gray-600">
                 {new Date(a.test_date).toLocaleDateString()}
               </td>
-              <td className="px-4 py-3 text-sm text-gray-600">{a.rw_scaled ?? "—"}</td>
-              <td className="px-4 py-3 text-sm text-gray-600">{a.math_scaled ?? "—"}</td>
-              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+              <td className="px-4 py-3 text-right text-sm text-gray-600">
+                {a.rw_scaled ?? "—"}
+              </td>
+              <td className="px-4 py-3 text-right text-sm text-gray-600">
+                {a.math_scaled ?? "—"}
+              </td>
+              <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
                 {a.total_scaled || "—"}
               </td>
               <td className="px-4 py-3 text-sm">
