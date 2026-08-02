@@ -22,6 +22,7 @@ import re
 import sys
 import urllib.request
 import urllib.parse
+from datetime import datetime
 
 import pdfplumber
 
@@ -171,6 +172,34 @@ def parse_details_html(path):
             "domain_label": domain.group(1) if domain else None,
         })
     return rows
+
+
+def parse_test_meta(html_path):
+    """Pull the test name + date straight off the saved MyPractice page --
+    no manual entry needed. The browser titles/names the saved file after
+    the page's own <title>, which MyPractice renders as e.g.:
+        "MyPractice - SAT Practice 7 - August 7, 2025 - Details"
+    Falls back to (None, None) if the title doesn't match this shape, so
+    callers can fall back to a placeholder rather than fail the upload.
+    """
+    with open(html_path, encoding="utf-8", errors="ignore") as f:
+        # The <title> tag is always in the first few KB of the document.
+        head = f.read(8192)
+
+    m = re.search(
+        r"<title>\s*MyPractice\s*-\s*(.+?)\s*-\s*(\w+ \d{1,2},\s*\d{4})\s*-\s*Details\s*</title>",
+        head,
+        re.I,
+    )
+    if not m:
+        return None, None
+
+    test_name = m.group(1).strip()
+    try:
+        test_date = datetime.strptime(m.group(2).strip(), "%B %d, %Y").date().isoformat()
+    except ValueError:
+        test_date = None
+    return test_name, test_date
 
 
 def parse_score_pdf(path):
@@ -390,6 +419,7 @@ def summarize(merged, pdf_scores):
 def build_report(html_path, pdf_path):
     html_rows = parse_details_html(html_path)
     pdf_scores = parse_score_pdf(pdf_path)
+    test_name, test_date = parse_test_meta(html_path)
 
     module1_bank = fetch_module1_bank()
     form_code, match_score, m1_total, all_scores = identify_form_code(html_rows, module1_bank)
@@ -414,6 +444,8 @@ def build_report(html_path, pdf_path):
         "summary": summary,
         "questions": merged,
         "diagnostics": diagnostics,
+        "test_name": test_name,
+        "test_date": test_date,
     }
 
 

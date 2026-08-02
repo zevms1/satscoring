@@ -124,24 +124,29 @@ def process_attempt(attempt_id):
     raw = summary["raw_scores"]
     scaled = summary["scaled_scores"]
 
-    # 1. Update the attempt row with top-line scores.
-    _rest_patch(
-        "attempts",
-        {"id": f"eq.{attempt_id}"},
-        {
-            "rw_correct": raw["reading_and_writing"]["correct"],
-            "rw_incorrect": raw["reading_and_writing"]["incorrect"],
-            "rw_omitted": raw["reading_and_writing"]["omitted"],
-            "rw_scaled": scaled["reading_and_writing"],
-            "math_correct": raw["math"]["correct"],
-            "math_incorrect": raw["math"]["incorrect"],
-            "math_omitted": raw["math"]["omitted"],
-            "math_scaled": scaled["math"],
-            "form_code": report["diagnostics"].get("form_code"),
-            "status": "completed",
-            "processed_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
+    # 1. Update the attempt row with top-line scores. test_name/test_date
+    # come straight off the saved page's own <title> (see
+    # sat_parser.parse_test_meta) -- students no longer type these in, so
+    # only overwrite the upload-time placeholder if extraction succeeded.
+    patch_body = {
+        "rw_correct": raw["reading_and_writing"]["correct"],
+        "rw_incorrect": raw["reading_and_writing"]["incorrect"],
+        "rw_omitted": raw["reading_and_writing"]["omitted"],
+        "rw_scaled": scaled["reading_and_writing"],
+        "math_correct": raw["math"]["correct"],
+        "math_incorrect": raw["math"]["incorrect"],
+        "math_omitted": raw["math"]["omitted"],
+        "math_scaled": scaled["math"],
+        "form_code": report["diagnostics"].get("form_code"),
+        "status": "completed",
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if report.get("test_name"):
+        patch_body["test_name"] = report["test_name"]
+    if report.get("test_date"):
+        patch_body["test_date"] = report["test_date"]
+
+    _rest_patch("attempts", {"id": f"eq.{attempt_id}"}, patch_body)
 
     # 2. domain_results -- one row per domain across both parser sections.
     domain_rows = []

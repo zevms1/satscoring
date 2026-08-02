@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/lib/SiteHeader";
 import { UploadForm } from "./UploadForm";
@@ -17,10 +18,23 @@ export default async function UploadPage({
     <>
       <SiteHeader email={user?.email ?? null} />
       <main className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Upload a practice test</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900">Upload practice test files</h1>
+          <Link href="/dashboard" className="text-sm font-medium text-brand hover:underline">
+            Go to my scored tests
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-gray-500">
-          Upload both files from a single MyPractice test attempt to get your scored,
-          domain- and skill-level breakdown.
+          Log into{" "}
+          <a
+            href="https://mypractice.collegeboard.org/dashboard"
+            target="_blank"
+            rel="noreferrer"
+            className="text-brand hover:underline"
+          >
+            mypractice.collegeboard.org/dashboard
+          </a>
+          , locate the test you want to analyze, and grab the 2 files below.
         </p>
 
         {error && (

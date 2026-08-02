@@ -12,44 +12,22 @@ export function UploadForm() {
       action={(formData) => startTransition(() => uploadAttempt(formData))}
       className="mt-6 space-y-5 rounded-lg border border-gray-200 bg-white p-6"
     >
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Test name</label>
-        <input
-          name="test_name"
-          type="text"
-          required
-          placeholder="e.g. SAT Practice Test 6"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Test date</label>
-        <input
-          name="test_date"
-          type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-        />
-      </div>
-
       <FileField
-        name="details_html"
-        label="MyPractice Details page (.html)"
-        accept=".html,.htm"
-        hint='From MyPractice: open your test results, then "Save Page As -> Webpage, Complete".'
-        fileName={fileNames.html}
-        onChange={(name) => setFileNames((f) => ({ ...f, html: name }))}
+        name="score_report_pdf"
+        label="Score Report PDF"
+        accept=".pdf"
+        hint="From https://mypractice.collegeboard.org/dashboard: downloaded as a PDF."
+        fileName={fileNames.pdf}
+        onChange={(name) => setFileNames((f) => ({ ...f, pdf: name }))}
       />
 
       <FileField
-        name="score_report_pdf"
-        label="Official Score Report (.pdf)"
-        accept=".pdf"
-        hint="Downloaded from MyPractice as a PDF."
-        fileName={fileNames.pdf}
-        onChange={(name) => setFileNames((f) => ({ ...f, pdf: name }))}
+        name="details_html"
+        label="Score Details Page HTML"
+        accept=".html,.htm"
+        hint='From https://mypractice.collegeboard.org/dashboard: open your test results, then "Save Page As -> Webpage, Complete".'
+        fileName={fileNames.html}
+        onChange={(name) => setFileNames((f) => ({ ...f, html: name }))}
       />
 
       <button

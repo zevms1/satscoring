@@ -14,19 +14,24 @@ export async function uploadAttempt(formData: FormData) {
     redirect("/login");
   }
 
-  const testName = String(formData.get("test_name") ?? "").trim();
-  const testDate = String(formData.get("test_date") ?? "");
   const htmlFile = formData.get("details_html") as File | null;
   const pdfFile = formData.get("score_report_pdf") as File | null;
 
-  if (!testName || !testDate || !htmlFile?.size || !pdfFile?.size) {
-    redirect("/upload?error=Please fill in every field and choose both files.");
+  if (!htmlFile?.size || !pdfFile?.size) {
+    redirect("/upload?error=Please choose both files.");
   }
 
   // 1. Create the attempt row first so we have an id to namespace the files.
+  // test_name/test_date are placeholders -- the parser reads the real values
+  // off the saved page's own <title> and overwrites these once scoring
+  // finishes (see api/parse.py + sat_parser.parse_test_meta).
   const { data: attempt, error: insertError } = await supabase
     .from("attempts")
-    .insert({ student_id: user.id, test_name: testName, test_date: testDate })
+    .insert({
+      student_id: user.id,
+      test_name: "Processing…",
+      test_date: new Date().toISOString().slice(0, 10),
+    })
     .select("id")
     .single();
 
