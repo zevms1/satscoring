@@ -6,8 +6,22 @@ import type { Attempt } from "@/lib/types";
 
 export type AttemptRow = Attempt & { profiles: { full_name: string | null } | null };
 
-type SortKey = "test_name" | "test_date" | "rw_scaled" | "math_scaled" | "total_scaled";
+type SortKey =
+  | "student_last_name"
+  | "test_name"
+  | "test_date"
+  | "rw_scaled"
+  | "math_scaled"
+  | "total_scaled";
 type SortDir = "asc" | "desc";
+
+// "Michael Scharf" -> "Scharf". Just the last whitespace-separated token --
+// good enough for sorting a tutoring roster, no need for real name parsing.
+function lastName(fullName: string | null | undefined): string | null {
+  if (!fullName) return null;
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1] || null;
+}
 
 export function AttemptsTable({
   attempts,
@@ -31,10 +45,10 @@ export function AttemptsTable({
   const sorted = useMemo(() => {
     const rows = [...attempts];
     rows.sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
+      const av = sortKey === "student_last_name" ? lastName(a.profiles?.full_name) : a[sortKey];
+      const bv = sortKey === "student_last_name" ? lastName(b.profiles?.full_name) : b[sortKey];
 
-      // Missing scores always sink to the bottom, regardless of direction.
+      // Missing scores/names always sink to the bottom, regardless of direction.
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -54,7 +68,15 @@ export function AttemptsTable({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {isTutor && <Th>Student</Th>}
+            {isTutor && (
+              <SortableTh
+                label="Student"
+                sortKey="student_last_name"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={handleSort}
+              />
+            )}
             <SortableTh
               label="Test"
               sortKey="test_name"
