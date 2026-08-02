@@ -70,7 +70,7 @@ def _rest_upsert(path, rows, on_conflict):
 def _download_storage_object(path, dest):
     resp = requests.get(
         f"{SUPABASE_URL}/storage/v1/object/attempt-files/{path}",
-        headers={"Authorization": f"Bearer {SERVICE_ROLE_KEY}"},
+        headers={"apikey": SERVICE_ROLE_KEY, "Authorization": f"Bearer {SERVICE_ROLE_KEY}"},
         timeout=60,
     )
     resp.raise_for_status()
@@ -82,6 +82,7 @@ def _upload_storage_object(path, content_bytes, content_type):
     resp = requests.post(
         f"{SUPABASE_URL}/storage/v1/object/attempt-files/{path}",
         headers={
+            "apikey": SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
             "Content-Type": content_type,
             "x-upsert": "true",
