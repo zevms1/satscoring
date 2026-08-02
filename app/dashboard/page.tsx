@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const { data } = await supabase
     .from("attempts")
     .select(
-      "id, test_name, test_date, status, rw_scaled, math_scaled, total_scaled, error_message, student_id, profiles(full_name)"
+      "id, test_name, test_date, status, rw_scaled, math_scaled, total_scaled, error_message, processed_at, student_id, profiles(full_name)"
     )
     .order("test_date", { ascending: false });
   const attempts = data as unknown as AttemptRow[] | null;

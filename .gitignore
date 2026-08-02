@@ -7,3 +7,7 @@ out
 *.pyc
 __pycache__/
 .DS_Store
+
+# Real student test files (PDFs/HTML saved from MyPractice) used as local
+# test fixtures -- contains PII/actual score data, never commit.
+HTML & Scorecards Samples/

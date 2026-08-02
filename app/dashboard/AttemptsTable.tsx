@@ -12,7 +12,8 @@ type SortKey =
   | "test_date"
   | "rw_scaled"
   | "math_scaled"
-  | "total_scaled";
+  | "total_scaled"
+  | "processed_at";
 type SortDir = "asc" | "desc";
 
 // "Michael Scharf" -> "Scharf". Just the last whitespace-separated token --
@@ -116,6 +117,13 @@ export function AttemptsTable({
               align="right"
             />
             <Th>Status</Th>
+            <SortableTh
+              label="Processed on"
+              sortKey="processed_at"
+              activeKey={sortKey}
+              dir={sortDir}
+              onSort={handleSort}
+            />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
@@ -149,6 +157,9 @@ export function AttemptsTable({
               </td>
               <td className="px-4 py-3 text-sm">
                 <StatusBadge status={a.status} errorMessage={a.error_message} />
+              </td>
+              <td className="px-4 py-3 text-sm text-gray-600">
+                {a.processed_at ? new Date(a.processed_at).toLocaleString() : "—"}
               </td>
             </tr>
           ))}
