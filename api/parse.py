@@ -52,7 +52,9 @@ def _rest_get(path, params):
 def _rest_patch(path, params, body):
     resp = requests.patch(f"{SUPABASE_URL}/rest/v1/{path}", headers=REST_HEADERS, params=params, json=body, timeout=30)
     resp.raise_for_status()
-    return resp.json()
+    # PATCH returns an empty 204 body by default (no `Prefer: return=representation`
+    # header sent) -- only try to parse JSON if there's actually content.
+    return resp.json() if resp.content else None
 
 
 def _rest_upsert(path, rows, on_conflict):
