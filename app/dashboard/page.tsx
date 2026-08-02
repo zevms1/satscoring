@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/lib/SiteHeader";
-import type { Attempt } from "@/lib/types";
-
-type AttemptRow = Attempt & { profiles: { full_name: string | null } | null };
+import { AttemptsTable, type AttemptRow } from "./AttemptsTable";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -53,88 +51,9 @@ export default async function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {isTutor && <Th>Student</Th>}
-                  <Th>Test</Th>
-                  <Th>Date</Th>
-                  <Th>R&amp;W</Th>
-                  <Th>Math</Th>
-                  <Th>Total</Th>
-                  <Th>Status</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {attempts.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    {isTutor && (
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {a.profiles?.full_name ?? "—"}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-sm">
-                      {a.status === "completed" ? (
-                        <Link
-                          href={`/test/${a.id}`}
-                          className="font-medium text-brand hover:underline"
-                        >
-                          {a.test_name}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-gray-900">{a.test_name}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(a.test_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{a.rw_scaled ?? "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{a.math_scaled ?? "—"}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {a.total_scaled || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <StatusBadge status={a.status} errorMessage={a.error_message} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AttemptsTable attempts={attempts} isTutor={isTutor} />
         )}
       </main>
     </>
-  );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-      {children}
-    </th>
-  );
-}
-
-function StatusBadge({
-  status,
-  errorMessage,
-}: {
-  status: Attempt["status"];
-  errorMessage: string | null;
-}) {
-  const styles: Record<Attempt["status"], string> = {
-    uploaded: "bg-gray-100 text-gray-700",
-    processing: "bg-yellow-100 text-yellow-800",
-    completed: "bg-green-100 text-green-800",
-    failed: "bg-red-100 text-red-800",
-  };
-  return (
-    <span
-      title={status === "failed" ? errorMessage ?? undefined : undefined}
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}
-    >
-      {status}
-    </span>
   );
 }
