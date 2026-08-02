@@ -133,6 +133,10 @@ def parse_details_html(path):
         qnum = re.search(r'scope="row">(\d+)</th>', tr)
         section = re.search(r'id="section-question-\d+">([^<]+)</td>', tr)
         correct_ans = re.search(r'<td class=""><div>([^<]*)</div></td>', tr)
+        # Correct answers use class="correct". Both incorrect AND omitted
+        # answers use class="cb-red1-color" (there is no separate "incorrect"
+        # class) — they're only distinguished by the text: "{letter}; Incorrect"
+        # vs. plain "Omitted". Must check text content, not just class.
         status = re.search(r'class="(correct|incorrect|cb-red1-color)">([^<]*)</p>', tr)
         domain = re.search(r'id="domain-question-\d+">([^<]+)</td>', tr)
         modbtn = re.search(r'id="module-(\d+)-question-(\d+)-button"', tr)
@@ -146,7 +150,7 @@ def parse_details_html(path):
             outcome = "correct"
         elif status_text == "Omitted":
             outcome = "omitted"
-        elif status_class == "incorrect":
+        elif status_text and "Incorrect" in status_text:
             outcome = "incorrect"
         else:
             outcome = "unknown"
