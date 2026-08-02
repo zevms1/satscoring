@@ -34,7 +34,8 @@ export default async function UploadPage({
           >
             mypractice.collegeboard.org/dashboard
           </a>
-          , locate the test you want to analyze, and grab the 2 files below.
+          , locate the tile for the test you want to analyze, click the yellow &quot;Score
+          Details&quot; button, and generate the 2 files below.
         </p>
 
         {error && (
