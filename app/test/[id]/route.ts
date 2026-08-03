@@ -103,6 +103,11 @@ export async function GET(
     student_name: studentName,
     test_name: attempt.test_name ?? "Practice Test",
     test_date_label: testDateLabel,
+    // Postgres `date` column -- already a plain "YYYY-MM-DD" string with no
+    // time/timezone component, so no reformatting needed. Used to build the
+    // suggested filename when printing/saving as PDF (see printFull /
+    // printQuestionsOnly in script.ts).
+    test_date_iso: attempt.test_date,
     user_email: user.email ?? "",
   };
 
