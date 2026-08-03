@@ -37,7 +37,7 @@ export default async function UploadPage({
       <SiteHeader email={user?.email ?? null} />
       <main className="mx-auto max-w-lg px-4 py-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Upload practice test files</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Upload practice test files</h1>
           <Link href="/dashboard" className="text-sm font-medium text-brand hover:underline">
             Go to my scored tests
           </Link>

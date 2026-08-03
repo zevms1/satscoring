@@ -4,7 +4,7 @@ export function SiteHeader({ email }: { email: string | null }) {
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-        <Link href="/dashboard" className="text-lg font-semibold text-brand">
+        <Link href="/dashboard" className="text-lg font-bold text-brand">
           Unique Prep
         </Link>
         <div className="flex items-center gap-4 text-sm text-gray-600">
