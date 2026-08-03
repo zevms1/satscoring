@@ -92,17 +92,18 @@ export async function GET(
 
   const reportJson = JSON.parse(await reportBlob.text());
 
-  const testLabel =
-    new Date(attempt.test_date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }) + (attempt.test_name ? ` — ${attempt.test_name}` : "");
+  const testDateLabel = new Date(attempt.test_date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   const report = {
     ...reportJson,
     student_name: studentName,
-    test_label: testLabel,
+    test_name: attempt.test_name ?? "Practice Test",
+    test_date_label: testDateLabel,
+    user_email: user.email ?? "",
   };
 
   // Guard against a stray "</script" in any question/answer text prematurely
