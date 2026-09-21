@@ -98,6 +98,15 @@ export async function GET(
 
   const reportJson = JSON.parse(await reportBlob.text());
 
+  // The Test repository's label for the form (e.g. "Bluebook 7") replaces
+  // the name MyPractice put in the page title, when the scorer identified
+  // the form.
+  let testName = attempt.test_name ?? "Practice Test";
+  if (attempt.form_code) {
+    const { data: form } = await supabase.from("test_forms").select("label").eq("form_code", attempt.form_code).maybeSingle();
+    if ((form as { label: string } | null)?.label) testName = (form as { label: string }).label;
+  }
+
   const testDateLabel = new Date(attempt.test_date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -107,7 +116,7 @@ export async function GET(
   const report = {
     ...reportJson,
     student_name: studentName,
-    test_name: attempt.test_name ?? "Practice Test",
+    test_name: testName,
     test_date_label: testDateLabel,
     // Postgres `date` column -- already a plain "YYYY-MM-DD" string with no
     // time/timezone component, so no reformatting needed. Used to build the

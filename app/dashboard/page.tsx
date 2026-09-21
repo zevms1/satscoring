@@ -118,6 +118,13 @@ export default async function DashboardPage({
   );
 }
 
+// Vercel renders on a UTC server; show dates and times in the business's
+// own timezone. The processed time keeps hours and minutes only.
+const TZ = "America/Los_Angeles";
+const fmtDate = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-US", { timeZone: TZ, month: "numeric", day: "numeric", year: "numeric" });
+const fmtProcessed = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { timeZone: TZ, month: "numeric", day: "numeric", year: "2-digit", hour: "numeric", minute: "2-digit" }).replace(", ", " ");
+
 type ScorecardRow = {
   id: string;
   test_name: string;
@@ -140,6 +147,13 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
   const desc = v.dir === "desc";
   const filtered = hasScorecardFilters(v);
 
+  // The Test repository's label for each form wins over the name
+  // MyPractice put in the page title, so renaming a form there renames
+  // its tests here.
+  const { data: formRows } = await supabase.from("test_forms").select("form_code, label");
+  const formLabel = new Map(((formRows ?? []) as { form_code: string; label: string }[]).map((f) => [f.form_code, f.label]));
+  const testLabel = (r: { form_code: string | null; test_name: string }) => (r.form_code && formLabel.get(r.form_code)) || r.test_name;
+
   // Every row, light, for the chips (RLS already scopes tutors to all
   // students and a student to themselves).
   const facets: ScorecardFacet[] = [];
@@ -157,7 +171,7 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
           student_id: r.student_id,
           student_name: r.profiles?.sort_name ?? r.profiles?.full_name ?? "",
           form_code: r.form_code,
-          test_name: r.test_name,
+          test_name: testLabel(r),
           status: r.status,
           test_date: r.test_date,
         });
@@ -227,7 +241,7 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
     });
   const arrow = (key: ScorecardSort) => (v.sort === key ? (desc ? " ▼" : " ▲") : "");
   const th = (key: ScorecardSort, label: string, align: "left" | "right" = "left") => (
-    <th className={`px-3 py-2 text-${align} font-bold whitespace-nowrap${v.sort === key ? " text-brand" : ""}`}>
+    <th className={`${align === "right" ? "px-2" : "px-3"} py-2 text-${align} font-bold whitespace-nowrap${v.sort === key ? " text-brand" : ""}`}>
       <Link href={sortLink(key)} className="hover:text-gray-900">
         {label}
         {arrow(key)}
@@ -266,9 +280,9 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
                 {th("rw", "R&W", "right")}
                 {th("math", "Math", "right")}
                 {th("total", "Total", "right")}
-                <th className="px-3 py-2 text-left font-bold">Status</th>
-                {th("processed", "Processed on")}
-                <th className="px-3 py-2" />
+                <th className="px-2 py-2 text-left font-bold">Status</th>
+                {th("processed", "Processed")}
+                <th className="sticky right-0 bg-white px-3 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -276,16 +290,17 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
                 const href = a.status === "completed" ? `/test/${a.id}` : null;
                 const cell = (content: React.ReactNode) => (href ? <Link href={href} className="block">{content}</Link> : content);
                 const student = a.profiles?.sort_name ?? a.profiles?.full_name ?? "—";
-                const label = `${a.test_name} (${new Date(a.test_date).toLocaleDateString()})${isTutor ? ` for ${a.profiles?.full_name ?? "this student"}` : ""}`;
+                const name = testLabel(a);
+                const label = `${name} (${fmtDate(a.test_date)})${isTutor ? ` for ${a.profiles?.full_name ?? "this student"}` : ""}`;
                 return (
                   <tr key={a.id} className="hover:bg-gray-50">
                     {isTutor && <td className="whitespace-nowrap px-3 py-2">{cell(student)}</td>}
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{href ? <Link href={href} className="block text-brand hover:underline">{a.test_name}</Link> : <span className="text-gray-900">{a.test_name}</span>}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">{cell(new Date(a.test_date).toLocaleDateString())}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">{cell(a.rw_scaled ?? <span className="text-gray-300">—</span>)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">{cell(a.math_scaled ?? <span className="text-gray-300">—</span>)}</td>
-                    <td className="px-3 py-2 text-right font-bold tabular-nums text-gray-900">{cell(a.total_scaled || <span className="font-normal text-gray-300">—</span>)}</td>
-                    <td className="whitespace-nowrap px-3 py-2">
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{href ? <Link href={href} className="block text-brand hover:underline">{name}</Link> : <span className="text-gray-900">{name}</span>}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">{cell(fmtDate(a.test_date))}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-gray-700">{cell(a.rw_scaled ?? <span className="text-gray-300">—</span>)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-gray-700">{cell(a.math_scaled ?? <span className="text-gray-300">—</span>)}</td>
+                    <td className="px-2 py-2 text-right font-bold tabular-nums text-gray-900">{cell(a.total_scaled || <span className="font-normal text-gray-300">—</span>)}</td>
+                    <td className="whitespace-nowrap px-2 py-2">
                       <span
                         title={a.status === "failed" ? a.error_message ?? undefined : undefined}
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle[a.status] ?? "bg-gray-100 text-gray-700"}`}
@@ -293,8 +308,11 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
                         {STATUS_LABELS[a.status as keyof typeof STATUS_LABELS] ?? a.status}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">{a.processed_at ? new Date(a.processed_at).toLocaleString() : "—"}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="whitespace-nowrap px-2 py-2 text-gray-600" title={a.processed_at ? new Date(a.processed_at).toLocaleString("en-US", { timeZone: TZ }) : undefined}>
+                      {a.processed_at ? fmtProcessed(a.processed_at) : "—"}
+                    </td>
+                    {/* Pinned to the right edge, so the actions stay in view even when the table scrolls. */}
+                    <td className="sticky right-0 bg-white px-3 py-2 text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">
                       <AttemptRowActions attemptId={a.id} label={label} status={a.status} isAdmin={isAdmin} />
                     </td>
                   </tr>
@@ -316,17 +334,21 @@ async function TestsTab({ sort, dir }: { sort?: string; dir?: string }) {
   const sortKey: FormSort = FORM_SORTS.includes(sort as FormSort) ? (sort as FormSort) : "form";
   const desc = dir === "desc";
   const supabase = await createClient();
-  const [{ data: forms }, { data: bankRows }, { data: attemptRows }] = await Promise.all([
+  const [{ data: forms }, { data: attemptRows }] = await Promise.all([
     supabase.from("test_forms").select("form_code, label, notes, created_at, updated_at").order("form_code"),
-    // Counts only: one light row per question is well under PostgREST's
-    // 1,000-row cap for the forms we have; revisit if the bank passes ~6 forms
-    // more than today's eight.
-    supabase.from("item_bank").select("form_code, section").limit(5000),
     supabase.from("attempts").select("form_code"),
   ]);
+  // One light row per question, fetched in pages: PostgREST caps a single
+  // request at 1,000 rows and the bank is already past that.
+  const bankRows: { form_code: string; section: Section }[] = [];
+  for (let start = 0; ; start += 1000) {
+    const { data } = await supabase.from("item_bank").select("form_code, section").order("question_key").range(start, start + 999);
+    bankRows.push(...((data ?? []) as { form_code: string; section: Section }[]));
+    if (!data || data.length < 1000) break;
+  }
 
   const questionCounts = new Map<string, Record<Section, number>>();
-  for (const r of (bankRows ?? []) as { form_code: string; section: Section }[]) {
+  for (const r of bankRows) {
     const c = questionCounts.get(r.form_code) ?? { RW: 0, MA: 0 };
     c[r.section] = (c[r.section] ?? 0) + 1;
     questionCounts.set(r.form_code, c);
@@ -406,7 +428,7 @@ async function TestsTab({ sort, dir }: { sort?: string; dir?: string }) {
                     </td>
                   ))}
                   <td className="px-4 py-2 text-right tabular-nums text-gray-700">{n}</td>
-                  <td className="px-4 py-2 text-gray-600">{new Date(f.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2 text-gray-600">{fmtDate(f.created_at)}</td>
                   <td className="px-4 py-2 text-right">
                     <FormRowActions formCode={f.form_code} label={f.label} attemptCount={n} />
                   </td>
