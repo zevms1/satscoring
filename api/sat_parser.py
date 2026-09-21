@@ -33,6 +33,75 @@ import pdfplumber
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").rstrip("/")
 SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
+DOMAIN_NAMES = {
+    "CAS": "Craft and Structure",
+    "IAI": "Information and Ideas",
+    "SEC": "Standard English Conventions",
+    "EOI": "Expression of Ideas",
+    "ALG": "Algebra",
+    "ADV": "Advanced Math",
+    "PSD": "Problem-Solving and Data Analysis",
+    "GTR": "Geometry and Trigonometry",
+}
+
+# Numeric domain codes, from Michael's SkillNames&Codes.xlsx ("Dom #" column).
+# Reading & Writing and Math each number their own domains 01-04.
+DOMAIN_NUM_CODES = {
+    "CAS": "01", "IAI": "02", "SEC": "03", "EOI": "04",
+    "ALG": "01", "ADV": "02", "PSD": "03", "GTR": "04",
+}
+
+# Numeric skill codes ("Skill code" column): domain#.skill#, skill# counting
+# sequentially across all of that section's domains (not reset per domain).
+SKILL_NUM_CODES = {
+    # Reading & Writing
+    "WIC": "01.01", "TSP": "01.02", "CTC": "01.03",
+    "CID": "02.04", "COE": "02.05", "INF": "02.06",
+    "BND": "03.07", "FSS": "03.08",
+    "TRN": "04.09", "RSY": "04.10",
+    # Math
+    "LOV": "01.01", "LNF": "01.02", "LTV": "01.03", "SLE": "01.04", "LIQ": "01.05",
+    "NLF": "02.06", "NES": "02.07", "EQE": "02.08",
+    "RRP": "03.09", "PCT": "03.10", "CSD": "03.11", "MSC": "03.12",
+    "PRB": "03.13", "IME": "03.14", "ESE": "03.15",
+    "AVL": "04.16", "LAT": "04.17", "RTT": "04.18", "CRC": "04.19",
+}
+
+# Skill-code -> full name, from Michael's SkillNames&Codes.xlsx (authoritative).
+SKILL_NAMES = {
+    # Reading & Writing
+    "WIC": "Words in Context",
+    "TSP": "Text Structure & Purpose",
+    "CTC": "Cross-Text Connections",
+    "CID": "Central Ideas & Details",
+    "COE": "Command of Evidence",
+    "INF": "Inferences",
+    "BND": "Boundaries",
+    "FSS": "Form, Structure, & Sense",
+    "TRN": "Transitions",
+    "RSY": "Rhetorical Synthesis",
+    # Math
+    "LOV": "Linear equations in one variable",
+    "LNF": "Linear functions",
+    "LTV": "Linear equations in two variables",
+    "SLE": "Systems of two linear equations in two variables",
+    "LIQ": "Linear inequalities in one or two variables",
+    "NLF": "Nonlinear functions",
+    "NES": "Nonlinear equations in one variable and systems of equations in two variables",
+    "EQE": "Equivalent expressions",
+    "RRP": "Ratios, rates, proportional relationships, and units",
+    "PCT": "Percentages",
+    "CSD": "One-variable data: Distributions and measures of center and spread",
+    "MSC": "Two-variable data: Models and scatterplots",
+    "PRB": "Probability and conditional probability",
+    "IME": "Inference from sample statistics and margin of error",
+    "ESE": "Evaluating statistical claims: Observational studies and experiments",
+    "AVL": "Area and volume",
+    "LAT": "Lines, angles, and triangles",
+    "RTT": "Right triangles and trigonometry",
+    "CRC": "Circles",
+}
+
 DIFFICULTY_NAMES = {"1": "Easy", "2": "Medium", "3": "Hard"}
 
 # What the rest of this module expects a bank row to look like -- string
