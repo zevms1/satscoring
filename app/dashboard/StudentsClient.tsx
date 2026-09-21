@@ -62,7 +62,7 @@ const EMPTY: StudentInput = {
   grade: null,
   tutor: null,
   enrollment_date: null,
-  self_entry_allowed: false,
+  self_entry_allowed: true, // SAT students upload for themselves by default (the ACT app defaults off)
   street: null,
   city: null,
   state: null,
