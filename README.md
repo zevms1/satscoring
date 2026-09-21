@@ -75,7 +75,9 @@ runtime; that dependency is gone.)
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id` (= `auth.users.id`), `email`, `full_name`, `role` | `role` is `student` (default) / `tutor` / `admin`. Row auto-created on first sign-in by the `handle_new_user()` trigger. |
+| `profiles` | `id` (= `auth.users.id`), `email`, `full_name`, `sort_name` (generated "Last, First"), `role`, `student_id` | `role` is `student` (default) / `tutor` / `admin`. Row auto-created on first sign-in by the `handle_new_user()` trigger, which also links it to the `students` row with the same email. |
+| `students` | `id`, `first_name`, `last_name`, `full_name`/`sort_name` (generated), `email` (unique, lowercase), `phone`, `school`, `grade` (1–13, 13 = NLIHS), `tutor`, `enrollment_date`, `self_entry_allowed`, `is_active`, address, `profile_id` | The roster (Students tab), same shape as the ACT app. **A student can only sign in if their email is on this roster and active** — see "Roster and sign-in gate". `self_entry_allowed` = may upload their own tests (else a tutor uploads for them). |
+| `test_forms` | `form_code` (PK, e.g. SDB304), `label`, `notes`, `created_at` | One row per practice-test form in the item bank (Test repository tab). Deleting one cascades to its `item_bank` rows; the app refuses while any attempt uses it. |
 | `attempts` | `id`, `student_id`, `test_name`, `test_date`, `rw_scaled`, `math_scaled`, `total_scaled` (generated), `form_code`, `status`, `report_json_path`, `source_html_path`, `source_pdf_path` | One row per uploaded test. `status`: `uploaded` → `processing` → `completed`/`failed`. |
 | `domain_results` | `attempt_id`, `domain_code`, `correct`/`incorrect`/`omitted`/`total`, `accuracy_pct` | One row per domain per attempt. |
 | `skill_results` | `attempt_id`, `skill_code`, `correct`/`incorrect`/`omitted`/`total`, `accuracy_pct` | One row per skill per attempt. |
@@ -125,6 +127,36 @@ saved HTML page's own `<title>` tag — MyPractice titles it e.g.
 values once scoring finishes. The placeholder inserted at upload time only
 survives if parsing fails before getting that far.
 
+### Roster and sign-in gate
+
+Sign-in is Google OAuth, but the app only lets in people Michael has
+entered. `lib/access.ts` calls the `link_my_student()` SQL function
+(security definer) on every sign-in (`app/auth/callback/route.ts`) and on
+the dashboard, upload and report pages. It links the caller's profile to
+the `students` row with the same email if that hasn't happened yet (so a
+student added to the roster *after* their first sign-in still gets in),
+and returns `staff` (admin/tutor), `active`, `inactive` or `unlinked`.
+`inactive` and `unlinked` are signed straight back out with a message on
+the login page. Admins/tutors need no roster row. The roster is managed
+on the dashboard's Students tab (`app/dashboard/StudentsClient.tsx`,
+copied from the ACT app; `createStudent` etc. in `app/dashboard/actions.ts`).
+Deleting a student also deletes their tests and files.
+
+### Admin dashboard tabs
+
+`/dashboard` is tabbed for admins (`?tab=`): **Scorecards** (every test,
+chip filters for student/test/status/period, server-side sort + paging,
+View / Re-score / Delete), **Students** (the roster), **Test repository**
+(every form in `item_bank`: view, edit answer/difficulty/domain/skill
+inline, add a form by pasting rows, delete unused forms). Tutors get the
+Scorecards list with filters; students get just their own tests.
+
+**Re-scoring:** SAT scoring runs from the stored HTML + PDF, so editing
+the item bank doesn't change existing reports by itself. `rescoreAttempt`
+(`app/dashboard/actions.ts`) re-runs `/api/parse` for one attempt (also
+the retry for a failed upload); the form editor's "Re-score N tests"
+button runs it for every attempt on that form, one at a time.
+
 ### Uploading on behalf of a student
 
 Tutors/admins see an extra "Student email" field on `/upload` (with
@@ -141,12 +173,18 @@ row exists) — there's no "invite before they've signed up" path yet.
 app/
   login/            Google sign-in (Server Action + callback route)
   upload/            Upload form, drag-and-drop, tutor "on behalf of" field
-  dashboard/         Sortable attempts table (AttemptsTable.tsx is the client component)
+  dashboard/         Tabbed admin dashboard: Scorecards (scorecardsUrl.ts, ScorecardFilters, AttemptRowActions),
+                     Students (StudentsClient), Test repository (FormRowActions); ChipFilters/PageNav shared widgets
+  forms/             Test repository screens: [code] view, [code]/edit (EditFormClient), new (NewFormClient), actions.ts
   test/[id]/route.ts Branded score report (standalone HTML, bypasses app layout)
 api/
   parse.py           Vercel Python function: downloads files, runs sat_parser, writes DB + Storage
   sat_parser.py      Parsing/scoring logic (HTML + PDF + item_bank table -> report JSON)
 lib/
+  access.ts          getAccess(): role + roster standing via link_my_student(); the sign-in gate
+  sat-forms.ts       Section/module vocabulary + question-key scheme for the item bank
+  forms-data.ts      Admin-only loaders for the test repository screens
+  ui.ts              BTN class map (copied from the ACT app)
   supabase/          Browser/server Supabase client factories
   report-template/   skeleton.ts / script.ts / logo.ts — verbatim assets for the branded report,
                       stored as generated TS string constants (see note below)

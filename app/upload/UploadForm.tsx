@@ -7,9 +7,12 @@ import { Screenshot } from "./Screenshot";
 export function UploadForm({
   isTutor = false,
   students = [],
+  presetStudent = null,
 }: {
   isTutor?: boolean;
   students?: { email: string; full_name: string | null }[];
+  /** Email to pre-fill the student field with (from the roster's "Upload a test" button). */
+  presetStudent?: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [fileNames, setFileNames] = useState<{ html?: string; pdf?: string }>({});
@@ -33,6 +36,7 @@ export function UploadForm({
           <input
             name="student_email"
             type="email"
+            defaultValue={presetStudent ?? undefined}
             required
             list="student-emails"
             placeholder="student@example.com"

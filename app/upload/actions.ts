@@ -14,6 +14,22 @@ export async function uploadAttempt(formData: FormData) {
     redirect("/login");
   }
 
+  // A student may upload for themselves only if they are on the roster,
+  // active, and allowed to (the roster's "May upload their own tests").
+  {
+    const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    if ((me as { role: string } | null)?.role === "student") {
+      const { data: row } = await supabase
+        .from("students")
+        .select("self_entry_allowed, is_active")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+      const r = row as { self_entry_allowed: boolean; is_active: boolean } | null;
+      if (!r || !r.is_active) redirect("/dashboard");
+      if (!r.self_entry_allowed) redirect("/upload?error=Your tutor uploads tests for you.");
+    }
+  }
+
   const htmlFile = formData.get("details_html") as File | null;
   const pdfFile = formData.get("score_report_pdf") as File | null;
 

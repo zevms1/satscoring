@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/lib/SiteHeader";
 import { BTN } from "@/lib/ui";
 import { SECTION_ORDER, SECTION_SHORT, type Section, type TestForm } from "@/lib/sat-forms";
 import { FormRowActions } from "./FormRowActions";
+import { StudentsClient, type StudentRow } from "./StudentsClient";
+import { ACCESS_MESSAGES, getAccess } from "@/lib/access";
 import { AttemptRowActions } from "./AttemptRowActions";
 import { PageNav } from "./PageNav";
 import { ScorecardFilters, type ScorecardFacet } from "./ScorecardFilters";
@@ -25,9 +28,10 @@ import {
 // role) and, for admins, the Test repository. A student sees only their
 // own scored tests, with no tab bar. The active tab comes from ?tab=.
 
-type Tab = "attempts" | "tests";
+type Tab = "attempts" | "students" | "tests";
 const TABS: { key: Tab; label: string }[] = [
   { key: "attempts", label: "Scorecards" },
+  { key: "students", label: "Students" },
   { key: "tests", label: "Test repository" },
 ];
 
@@ -38,25 +42,22 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: ownProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id ?? "")
-    .single();
-  const role = (ownProfile as { role: string } | null)?.role;
+  const access = await getAccess(supabase);
+  if (!access) redirect("/login");
+  const role = access.role;
   const isTutor = role !== "student";
   const isAdmin = role === "admin";
+  // A student who isn't on the roster, or is inactive, is normally turned
+  // away at sign-in; a session from before that gate existed lands here.
+  const blocked = !access.allowed;
   const tab: Tab = isAdmin && TABS.some((t) => t.key === params.tab) ? (params.tab as Tab) : "attempts";
   const view = parseScorecardsView(params);
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const newStudent = one(params.new) === "1";
 
   return (
     <>
-      <SiteHeader email={user?.email ?? null} />
+      <SiteHeader email={access.email} />
       <main className="mx-auto max-w-4xl px-4 py-8">
         {isAdmin ? (
           <>
@@ -65,6 +66,9 @@ export default async function DashboardPage({
               <div className="flex flex-wrap gap-3">
                 <Link href="/upload" className={BTN.primary}>
                   + Upload a test
+                </Link>
+                <Link href="/dashboard?tab=students&new=1" className={BTN.secondary}>
+                  + New student
                 </Link>
                 <Link href="/forms/new" className={BTN.secondary}>
                   + New test form
@@ -90,14 +94,22 @@ export default async function DashboardPage({
             <h1 className="text-2xl font-bold text-gray-900">
               {isTutor ? "All practice tests" : "Your practice tests"}
             </h1>
-            <Link href="/upload" className={BTN.primary}>
-              Upload a new test
-            </Link>
+            {!blocked && (
+              <Link href="/upload" className={BTN.primary}>
+                Upload a new test
+              </Link>
+            )}
           </div>
         )}
 
-        {tab === "tests" ? (
+        {blocked ? (
+          <p className="mt-4 rounded-md bg-mid-soft px-3 py-2 text-sm text-mid">
+            {ACCESS_MESSAGES[access.status as keyof typeof ACCESS_MESSAGES]}
+          </p>
+        ) : tab === "tests" ? (
           <TestsTab sort={one(params.sort)} dir={one(params.dir)} />
+        ) : tab === "students" ? (
+          <StudentsTab openNew={newStudent} />
         ) : (
           <ScorecardsTab isTutor={isTutor} isAdmin={isAdmin} view={view} />
         )}
@@ -410,4 +422,56 @@ async function TestsTab({ sort, dir }: { sort?: string; dir?: string }) {
       </p>
     </section>
   );
+}
+
+// The roster, with each student's test count and latest report. Tests
+// hang off the student's sign-in profile, so they are matched up here by
+// profile_id; a student who has never signed in has none.
+async function StudentsTab({ openNew }: { openNew: boolean }) {
+  const supabase = await createClient();
+  const [{ data: students }, { data: attempts }] = await Promise.all([
+    supabase
+      .from("students")
+      .select(
+        "id, first_name, last_name, sort_name, email, phone, school, grade, tutor, enrollment_date, self_entry_allowed, profile_id, street, city, state, zip, is_active"
+      )
+      .order("sort_name"),
+    supabase.from("attempts").select("id, student_id, test_date, total_scaled, status").order("test_date", { ascending: false }),
+  ]);
+
+  const byProfile = new Map<string, { id: string; test_date: string; total_scaled: number | null; status: string }[]>();
+  for (const a of (attempts ?? []) as { id: string; student_id: string; test_date: string; total_scaled: number | null; status: string }[]) {
+    byProfile.set(a.student_id, [...(byProfile.get(a.student_id) ?? []), a]);
+  }
+
+  const rows: StudentRow[] = ((students ?? []) as (Omit<StudentRow, "linked" | "profileId" | "attemptCount" | "latestId" | "latestDate" | "latestComposite"> & { profile_id: string | null })[]).map((s) => {
+    const mine = s.profile_id ? byProfile.get(s.profile_id) ?? [] : [];
+    const latest = mine.find((a) => a.status === "completed") ?? null;
+    return {
+      id: s.id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      sort_name: s.sort_name,
+      email: s.email,
+      phone: s.phone,
+      school: s.school,
+      grade: s.grade,
+      tutor: s.tutor,
+      enrollment_date: s.enrollment_date,
+      self_entry_allowed: s.self_entry_allowed,
+      street: s.street,
+      city: s.city,
+      state: s.state,
+      zip: s.zip,
+      is_active: s.is_active,
+      linked: !!s.profile_id,
+      profileId: s.profile_id,
+      attemptCount: mine.length,
+      latestId: latest?.id ?? null,
+      latestDate: latest?.test_date ?? null,
+      latestComposite: latest?.total_scaled ?? null,
+    };
+  });
+
+  return <StudentsClient students={rows} startNew={openNew} />;
 }

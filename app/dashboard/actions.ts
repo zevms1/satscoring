@@ -124,3 +124,132 @@ export async function rescoreAttempt(attemptId: string): Promise<{ error?: strin
   revalidatePath("/dashboard");
   return {};
 }
+
+// ---------------------------------------------------------------------
+// Student roster (Students tab). Same shape and rules as the ACT app.
+// Every write is RLS-gated to the admin and re-checked up front so the
+// error is a plain sentence rather than a silent no-op.
+// ---------------------------------------------------------------------
+
+export type StudentInput = {
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  school: string | null;
+  grade: number | null;
+  tutor: string | null;
+  enrollment_date: string | null; // YYYY-MM-DD
+  self_entry_allowed: boolean;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  is_active: boolean;
+};
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function requireAdminId(): Promise<{ supabase: Awaited<ReturnType<typeof createClient>>; adminId: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { supabase, adminId: null };
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  return { supabase, adminId: (profile as { role: string } | null)?.role === "admin" ? user.id : null };
+}
+
+function cleanStudent(input: StudentInput): { ok: true; row: StudentInput } | { ok: false; error: string } {
+  const first_name = input.first_name.trim();
+  const last_name = input.last_name.trim();
+  if (!last_name) return { ok: false, error: "Last name is required." };
+  if (!first_name) return { ok: false, error: "First name is required." };
+  const email = input.email?.trim().toLowerCase() || null;
+  if (email && !/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email)) return { ok: false, error: `"${email}" doesn't look like an email address.` };
+  // 13 is "no longer in high school" (shown as NLIHS).
+  if (input.grade != null && (!Number.isInteger(input.grade) || input.grade < 1 || input.grade > 13)) {
+    return { ok: false, error: "Grade must be a whole number from 1 to 12, or NLIHS." };
+  }
+  if (input.enrollment_date && !/^\d{4}-\d{2}-\d{2}$/.test(input.enrollment_date)) {
+    return { ok: false, error: "Enrollment date must be a date." };
+  }
+  return {
+    ok: true,
+    row: {
+      first_name,
+      last_name,
+      email,
+      phone: input.phone?.trim() || null,
+      school: input.school?.trim() || null,
+      grade: input.grade ?? null,
+      tutor: input.tutor?.trim() || null,
+      enrollment_date: input.enrollment_date || null,
+      self_entry_allowed: !!input.self_entry_allowed,
+      street: input.street?.trim() || null,
+      city: input.city?.trim() || null,
+      state: input.state?.trim().toUpperCase() || null,
+      zip: input.zip?.trim() || null,
+      is_active: input.is_active !== false,
+    },
+  };
+}
+
+export async function createStudent(input: StudentInput): Promise<ActionResult> {
+  const { supabase, adminId } = await requireAdminId();
+  if (!adminId) return { ok: false, error: "Admin only." };
+  const cleaned = cleanStudent(input);
+  if (!cleaned.ok) return cleaned;
+  const { error } = await supabase.from("students").insert(cleaned.row);
+  if (error) return { ok: false, error: error.code === "23505" ? "A student with that email already exists." : error.message };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function updateStudent(studentId: string, input: StudentInput): Promise<ActionResult> {
+  const { supabase, adminId } = await requireAdminId();
+  if (!adminId) return { ok: false, error: "Admin only." };
+  const cleaned = cleanStudent(input);
+  if (!cleaned.ok) return cleaned;
+  const { data, error } = await supabase.from("students").update(cleaned.row).eq("id", studentId).select("id");
+  if (error) return { ok: false, error: error.code === "23505" ? "Another student already has that email." : error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Student not found." };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function setStudentActive(studentId: string, active: boolean): Promise<ActionResult> {
+  const { supabase, adminId } = await requireAdminId();
+  if (!adminId) return { ok: false, error: "Admin only." };
+  const { data, error } = await supabase.from("students").update({ is_active: active }).eq("id", studentId).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Student not found." };
+  revalidatePath("/dashboard");
+  revalidatePath("/upload");
+  return { ok: true };
+}
+
+// Takes the student's tests (reports and uploaded files) with it, like the
+// ACT app: attempts hang off the student's sign-in profile, so they are
+// removed here explicitly. The confirm dialog on the Students tab says how
+// many, so this is never a surprise.
+export async function deleteStudent(studentId: string): Promise<ActionResult> {
+  const { supabase, adminId } = await requireAdminId();
+  if (!adminId) return { ok: false, error: "Admin only." };
+  const { data: student } = await supabase.from("students").select("id, profile_id").eq("id", studentId).single();
+  if (!student) return { ok: false, error: "Student not found." };
+
+  if (student.profile_id) {
+    const { data: attempts } = await supabase.from("attempts").select("id").eq("student_id", student.profile_id);
+    for (const a of attempts ?? []) {
+      const result = await deleteAttempt(a.id);
+      if (result.error) return { ok: false, error: result.error };
+    }
+  }
+
+  const { data, error } = await supabase.from("students").delete().eq("id", studentId).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Student not found." };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}

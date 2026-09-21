@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAccess } from "@/lib/access";
 import type { Attempt } from "@/lib/types";
 import { REPORT_SKELETON } from "@/lib/report-template/skeleton";
 import { REPORT_SCRIPT } from "@/lib/report-template/script";
@@ -41,6 +42,11 @@ export async function GET(
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+  // Students must be on the roster and active (see lib/access.ts).
+  const access = await getAccess(supabase);
+  if (access && !access.allowed) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   const { data: attemptData } = await supabase
