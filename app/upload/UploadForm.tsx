@@ -81,6 +81,18 @@ export function UploadForm({
               Once these options are selected, hit Ctrl+S (or Cmd+S) and save the page as
               &quot;Webpage, Complete.&quot;
             </li>
+            <li>
+              Your browser saves two things: a single <span className="font-medium">.html</span>{" "}
+              file (named something like &quot;MyPractice - SAT Practice 7 - ... -
+              Details.html&quot;) and a folder with the same name ending in
+              &quot;_files.&quot; Upload <span className="font-medium">only the .html file</span>{" "}
+              here. The folder isn&apos;t needed, so you can delete it right away.
+            </li>
+            <li>
+              After you click &quot;Upload and score&quot; and your scored report opens,
+              the file is saved to your account. You can then delete the .html file (and
+              the Score Report PDF) from your device.
+            </li>
           </ol>
         }
         fileName={fileNames.html}
