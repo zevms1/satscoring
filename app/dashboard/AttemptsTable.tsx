@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import type { Attempt } from "@/lib/types";
-import { deleteAttempt } from "./actions";
+import { useRouter } from "next/navigation";
+import { BTN } from "@/lib/ui";
+import { deleteAttempt, rescoreAttempt } from "./actions";
 
 export type AttemptRow = Attempt & { profiles: { full_name: string | null } | null };
 
@@ -38,6 +40,18 @@ export function AttemptsTable({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rescoringId, setRescoringId] = useState<string | null>(null);
+  const router = useRouter();
+
+  function handleRescore(a: AttemptRow) {
+    setRescoringId(a.id);
+    startTransition(async () => {
+      const result = await rescoreAttempt(a.id);
+      setRescoringId(null);
+      if (result.error) window.alert(result.error);
+      router.refresh();
+    });
+  }
 
   function handleDelete(a: AttemptRow) {
     const who = a.profiles?.full_name ? ` for ${a.profiles.full_name}` : "";
@@ -188,14 +202,25 @@ export function AttemptsTable({
               </td>
               {canDelete && (
                 <td className="px-4 py-3 text-right text-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(a)}
-                    disabled={isPending && deletingId === a.id}
-                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:border-red-300 hover:bg-red-50 disabled:opacity-60"
-                  >
-                    {isPending && deletingId === a.id ? "Deleting…" : "Delete"}
-                  </button>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRescore(a)}
+                      disabled={isPending || a.status === "processing"}
+                      title="Run the scorer again on the uploaded files (after item-bank edits, or to retry a failure)"
+                      className={BTN.small}
+                    >
+                      {rescoringId === a.id ? "Re-scoring…" : "Re-score"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(a)}
+                      disabled={isPending}
+                      className={BTN.smallDanger}
+                    >
+                      {deletingId === a.id ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
                 </td>
               )}
             </tr>
