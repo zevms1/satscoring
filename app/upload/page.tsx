@@ -35,26 +35,34 @@ export default async function UploadPage({
   return (
     <>
       <SiteHeader email={user?.email ?? null} />
-      <main className="mx-auto max-w-lg px-4 py-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Upload practice test files</h1>
-          <Link href="/dashboard" className="text-sm font-medium text-brand hover:underline">
-            Go to my scored tests
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          {/* Grows to fill the row beside the button; wraps under it only
+              when there's less than ~24rem left for the text. */}
+          <div className="min-w-0 flex-1 basis-[24rem]">
+            <h1 className="text-2xl font-bold text-gray-900">Upload practice test files</h1>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              Log into{" "}
+              <a
+                href="https://mypractice.collegeboard.org/dashboard"
+                target="_blank"
+                rel="noreferrer"
+                className="text-brand hover:underline"
+              >
+                mypractice.collegeboard.org/dashboard
+              </a>
+              , open the tile for the test you want to analyze, click the yellow{" "}
+              <span className="font-medium text-gray-700">Score Details</span> button, then
+              generate the two files below.
+            </p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="shrink-0 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Go to my scored tests &rarr;
           </Link>
         </div>
-        <p className="mt-1 text-sm text-gray-500">
-          Log into{" "}
-          <a
-            href="https://mypractice.collegeboard.org/dashboard"
-            target="_blank"
-            rel="noreferrer"
-            className="text-brand hover:underline"
-          >
-            mypractice.collegeboard.org/dashboard
-          </a>
-          , locate the tile for the test you want to analyze, click the yellow &quot;Score
-          Details&quot; button, and generate the 2 files below.
-        </p>
 
         {error && (
           <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>

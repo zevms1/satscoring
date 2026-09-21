@@ -13,144 +13,163 @@ export function UploadForm({
   const [isPending, startTransition] = useTransition();
   const [fileNames, setFileNames] = useState<{ html?: string; pdf?: string }>({});
 
+  const bothChosen = Boolean(fileNames.pdf && fileNames.html);
+
   return (
     <form
       action={(formData) => startTransition(() => uploadAttempt(formData))}
-      className="mt-6 space-y-5 rounded-lg border border-gray-200 bg-white p-6"
+      className="mt-6 space-y-6"
     >
-      {isTutor && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Student email</label>
-          <input
-            name="student_email"
-            type="email"
-            required
-            list="student-emails"
-            placeholder="student@example.com"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-          />
-          <datalist id="student-emails">
-            {students.map((s) => (
-              <option key={s.email} value={s.email}>
-                {s.full_name ?? s.email}
-              </option>
-            ))}
-          </datalist>
-          <p className="mt-1 text-xs text-gray-500">
-            Who this test is for. They need to have signed in at least once already.
-          </p>
-        </div>
-      )}
-
-      <FileField
-        name="score_report_pdf"
-        label="Score Report PDF"
-        accept=".pdf"
-        hint={
-          <>
-            Click the &quot;Download Score Report&quot; button at the top of the Score
-            Details page to download the Score Report to your device. Then upload it
-            here.
-          </>
-        }
-        fileName={fileNames.pdf}
-        onChange={(name) => setFileNames((f) => ({ ...f, pdf: name }))}
-      />
-
-      <FileField
-        name="details_html"
-        label="Score Details Page HTML"
-        accept=".html,.htm"
-        hint={
-          <div className="space-y-2">
-            <p>
-              <span className="font-semibold">NOTE:</span> You must use Chrome, Edge, or
-              Firefox to download these files. Safari can&apos;t save the page in the
-              format needed. Also, some of these instructions will vary slightly depending
-              on whether you&apos;re using a Mac or PC.
+      {/* Who it's for (tutors only) beside the browser note. When there's no
+          email field the note takes the whole row. */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {isTutor && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Student email</label>
+            <input
+              name="student_email"
+              type="email"
+              required
+              list="student-emails"
+              placeholder="student@example.com"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            />
+            <datalist id="student-emails">
+              {students.map((s) => (
+                <option key={s.email} value={s.email}>
+                  {s.full_name ?? s.email}
+                </option>
+              ))}
+            </datalist>
+            <p className="mt-1 text-xs text-gray-500">
+              Who this test is for. They need to have signed in at least once already.
             </p>
-            <ol className="list-decimal space-y-2 pl-4">
+          </div>
+        )}
+        <div
+          className={`rounded-md border-l-4 border-brand bg-brand-light px-4 py-3 text-sm text-gray-700 ${
+            isTutor ? "" : "md:col-span-2"
+          }`}
+        >
+          <span className="font-semibold text-brand-dark">Use Chrome, Edge, or Firefox.</span>{" "}
+          Safari can&apos;t save the page in the format needed. A few steps differ slightly
+          on Mac vs. PC.
+        </div>
+      </div>
+
+      {/* The two files side by side; they stack on narrow screens. */}
+      <div className="grid items-start gap-6 md:grid-cols-2">
+        <FileField
+          step={1}
+          name="score_report_pdf"
+          label="Score Report PDF"
+          accept=".pdf"
+          dropHint="PDF only"
+          hint={
+            <ol className="list-decimal space-y-2 pl-5">
               <li>
-                On the Score Details page, scroll down until you see &quot;Questions
-                Overview&quot; and make the following two changes:
-                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
-                  <li>Turn ON the &quot;Show Correct Answers&quot; toggle</li>
-                  <li>In the &quot;View&quot; options, click &quot;All&quot;</li>
-                </ol>
-                <p className="mt-1">
-                  Also, ensure the Questions Overview table is sorted by ascending question
-                  number, as indicated by a &quot;^&quot; next to &quot;Question&quot; (this
-                  is the default sort, so just don&apos;t change it by clicking any of the
-                  other column headers like &quot;Your Answer&quot; or &quot;Domain&quot;).
+                At the top of the Score Details page, click{" "}
+                <span className="font-medium text-gray-700">Download Score Report</span>.
+              </li>
+              <li>The PDF saves to your device. Upload that file here.</li>
+            </ol>
+          }
+          fileName={fileNames.pdf}
+          onChange={(name) => setFileNames((f) => ({ ...f, pdf: name }))}
+        />
+
+        <FileField
+          step={2}
+          name="details_html"
+          label="Score Details Page HTML"
+          accept=".html,.htm"
+          dropHint="The single .html file only"
+          hint={
+            <ol className="list-decimal space-y-2 pl-5">
+              <li>
+                Scroll down to{" "}
+                <span className="font-medium text-gray-700">Questions Overview</span> and
+                make two changes:
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  <li>
+                    Turn <span className="font-medium text-gray-700">ON</span> the &quot;Show
+                    Correct Answers&quot; toggle
+                  </li>
+                  <li>
+                    In the &quot;View&quot; options, click{" "}
+                    <span className="font-medium text-gray-700">All</span>
+                  </li>
+                </ul>
+                <p className="mt-1 text-gray-500">
+                  Keep the table sorted by ascending question number (the &quot;^&quot; next
+                  to &quot;Question&quot;, the default). Don&apos;t click other column
+                  headers.
                 </p>
               </li>
               <li>
-                Once the above steps are done, hit Ctrl+S (or Cmd+S) to open a &quot;Save
-                As&quot; or &quot;Save Page As&quot; window. In this window:
-                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+                Press <span className="font-medium text-gray-700">Ctrl+S</span> (or{" "}
+                <span className="font-medium text-gray-700">Cmd+S</span>) to open &quot;Save
+                Page As&quot;, then:
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  <li>Pick somewhere easy to find, like your desktop or downloads folder</li>
                   <li>
-                    Select a location where the files will be easy to find, such as your
-                    desktop or downloads folder
+                    Under &quot;Save as type,&quot; select{" "}
+                    <span className="font-medium text-gray-700">Webpage, Complete</span>
                   </li>
-                  <li>
-                    In the &quot;Save as type,&quot; you must select &quot;Webpage,
-                    Complete.&quot;
-                  </li>
-                </ol>
-                <p className="mt-1">
-                  Once these options are set, click &quot;Save,&quot; and your browser will
-                  download two things:
+                </ul>
+                <p className="mt-1 text-gray-500">
+                  Saving gives you a single .html file (like &quot;MyPractice - SAT Practice
+                  7 - ... - Details.html&quot;) plus a folder ending in &quot;_files&quot;.
                 </p>
-                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
-                  <li>
-                    A single .html file (named something like &quot;MyPractice - SAT
-                    Practice 7 - ... - Details.html&quot;)
-                  </li>
-                  <li>A folder with the same name ending in &quot;_files&quot;</li>
-                </ol>
               </li>
               <li>
-                Once the files are downloaded, you need to upload{" "}
-                <span className="font-semibold">ONLY the single .html file</span>; click the
-                blue &quot;Choose a file&quot; below or just drag and drop the .html file to
-                the area below. (The folder that was downloaded isn&apos;t needed; it is safe
-                to delete it.)
+                Upload <span className="font-medium text-gray-700">only the .html file</span>{" "}
+                below. The &quot;_files&quot; folder isn&apos;t needed, so it&apos;s safe to
+                delete.
               </li>
               <li>
-                After you click &quot;Upload and score&quot; and your score report opens,
-                the file is saved to your account. You can then delete the .html file (and
-                the Score Report PDF, if you wish) from your device.
+                After scoring, the file is saved to your account, so you can delete both
+                downloads from your device.
               </li>
             </ol>
-          </div>
-        }
-        fileName={fileNames.html}
-        onChange={(name) => setFileNames((f) => ({ ...f, html: name }))}
-      />
+          }
+          fileName={fileNames.html}
+          onChange={(name) => setFileNames((f) => ({ ...f, html: name }))}
+        />
+      </div>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
-      >
-        {isPending ? "Uploading & scoring…" : "Upload and score"}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-gray-500" aria-live="polite">
+          {bothChosen ? "Both files attached. Ready to score." : "Attach both files to continue."}
+        </p>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-md bg-brand px-5 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+        >
+          {isPending ? "Uploading & scoring…" : "Upload and score"}
+        </button>
+      </div>
     </form>
   );
 }
 
 function FileField({
+  step,
   name,
   label,
   accept,
   hint,
+  dropHint,
   fileName,
   onChange,
 }: {
+  step: number;
   name: string;
   label: string;
   accept: string;
   hint: ReactNode;
+  dropHint: string;
   fileName?: string;
   onChange: (name: string | undefined) => void;
 }) {
@@ -177,9 +196,19 @@ function FileField({
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="mt-1 text-xs text-gray-500">{hint}</div>
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <label className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-600">
+            {step}
+          </span>
+          {label}
+        </label>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          Required
+        </span>
+      </div>
+      <div className="mb-4 mt-3 text-sm text-gray-600">{hint}</div>
 
       <div
         role="button"
@@ -194,17 +223,19 @@ function FileField({
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-8 text-center transition-colors ${
           isDragging
             ? "border-brand bg-brand-light"
             : "border-gray-300 bg-gray-50 hover:border-gray-400"
         }`}
       >
-        <p className="text-sm text-gray-600">
-          <span className="font-medium text-brand">Choose a file</span> or drag and drop it
-          here
-        </p>
-        {fileName && <p className="mt-1 text-xs text-gray-600">Selected: {fileName}</p>}
+        <p className="text-sm font-medium text-brand">Choose a file or drag it here</p>
+        <p className="mt-1 text-xs text-gray-500">{dropHint}</p>
+        {fileName && (
+          <p className="mt-2 text-xs text-gray-700">
+            Selected: <span className="font-medium">{fileName}</span>
+          </p>
+        )}
       </div>
 
       <input
