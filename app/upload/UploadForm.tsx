@@ -20,49 +20,61 @@ export function UploadForm({
       action={(formData) => startTransition(() => uploadAttempt(formData))}
       className="mt-6 space-y-6"
     >
-      {/* Who it's for (tutors only) beside the browser note. When there's no
-          email field the note takes the whole row. */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {isTutor && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Student email</label>
-            <input
-              name="student_email"
-              type="email"
-              required
-              list="student-emails"
-              placeholder="student@example.com"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-            />
-            <datalist id="student-emails">
-              {students.map((s) => (
-                <option key={s.email} value={s.email}>
-                  {s.full_name ?? s.email}
-                </option>
-              ))}
-            </datalist>
-            <p className="mt-1 text-xs text-gray-500">
-              Who this test is for. They need to have signed in at least once already.
-            </p>
-          </div>
-        )}
-        <div
-          className={`rounded-md border-l-4 border-brand bg-brand-light px-4 py-3 text-sm text-gray-700 ${
-            isTutor ? "" : "md:col-span-2"
-          }`}
-        >
-          <span className="font-semibold text-brand-dark">Use Chrome, Edge, or Firefox.</span>{" "}
-          Safari can&apos;t save the page in the format needed. A few steps differ slightly
-          on Mac vs. PC.
+      <div className="rounded-md border-l-4 border-brand bg-brand-light px-4 py-3 text-sm text-gray-700">
+        <span className="font-semibold text-brand-dark">Use Chrome, Edge, or Firefox.</span>{" "}
+        Safari can&apos;t save the page in the format needed. A few steps differ slightly on
+        Mac vs. PC.
+      </div>
+
+      {isTutor && (
+        <div className="max-w-md">
+          <label className="block text-sm font-medium text-gray-700">Student email</label>
+          <input
+            name="student_email"
+            type="email"
+            required
+            list="student-emails"
+            placeholder="student@example.com"
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          />
+          <datalist id="student-emails">
+            {students.map((s) => (
+              <option key={s.email} value={s.email}>
+                {s.full_name ?? s.email}
+              </option>
+            ))}
+          </datalist>
+          <p className="mt-1 text-xs text-gray-500">
+            Who this test is for. They need to have signed in at least once already.
+          </p>
         </div>
+      )}
+
+      {/* Step 1 has no file of its own: it's where both files come from. */}
+      <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <CardHeader step={1} title="Open the test's Score Details page" />
+        <p className="mt-3 text-sm text-gray-600">
+          Log into{" "}
+          <a
+            href="https://mypractice.collegeboard.org/dashboard"
+            target="_blank"
+            rel="noreferrer"
+            className="text-brand hover:underline"
+          >
+            mypractice.collegeboard.org/dashboard
+          </a>
+          , open the tile for the test you want to analyze, and click the yellow{" "}
+          <span className="font-medium text-gray-700">Score Details</span> button. Steps 2
+          and 3 both start from that page.
+        </p>
       </div>
 
       {/* The two files side by side; they stack on narrow screens. */}
       <div className="grid items-start gap-6 md:grid-cols-2">
         <FileField
-          step={1}
+          step={2}
           name="score_report_pdf"
-          label="Score Report PDF"
+          label="Upload Score Report PDF"
           accept=".pdf"
           dropHint="PDF only"
           hint={
@@ -79,9 +91,9 @@ export function UploadForm({
         />
 
         <FileField
-          step={2}
+          step={3}
           name="details_html"
-          label="Score Details Page HTML"
+          label="Upload Score Details Page HTML"
           accept=".html,.htm"
           dropHint="The single .html file only"
           hint={
@@ -154,6 +166,32 @@ export function UploadForm({
   );
 }
 
+function CardHeader({
+  step,
+  title,
+  required = false,
+}: {
+  step: number;
+  title: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 text-lg font-semibold text-gray-900">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-600">
+          {step}
+        </span>
+        {title}
+      </div>
+      {required && (
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          Required
+        </span>
+      )}
+    </div>
+  );
+}
+
 function FileField({
   step,
   name,
@@ -197,17 +235,7 @@ function FileField({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
-      <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-3 text-lg font-semibold text-gray-900">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-600">
-            {step}
-          </span>
-          {label}
-        </label>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-          Required
-        </span>
-      </div>
+      <CardHeader step={step} title={label} required />
       <div className="mb-4 mt-3 text-sm text-gray-600">{hint}</div>
 
       <div
