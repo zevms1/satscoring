@@ -12,7 +12,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         <h1 className="text-xl font-bold text-gray-900">Unique Prep</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Sign in to see your SAT practice test results.
+          Sign in to score a test or view your scorecards.
         </p>
 
         {error && (
