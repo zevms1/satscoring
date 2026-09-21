@@ -5,19 +5,18 @@ Combines three sources per student:
   1. Saved "Details" HTML page (MyPractice > per-test results page, saved via
      browser "Save Page As -> Webpage, Complete")
   2. Official PDF Score Report (downloaded from MyPractice)
-  3. A master item-bank Google Sheet (QuestionKey, EQB_ID, FormCode, Section,
-     Module, QuestionNumber, Correct, Difficulty, Domain, Skill) that is
-     looked up automatically to fill in Difficulty/Skill for every question,
-     since MyPractice's own per-question tooltips only render for whichever
-     rows happened to be on-screen when the page was saved.
+  3. The item bank in Supabase (public.item_bank: form code, section, module,
+     question number -> correct answer, difficulty, domain, skill), looked up
+     automatically to fill in Difficulty/Skill for every question, since
+     MyPractice's own per-question tooltips only render for whichever rows
+     happened to be on-screen when the page was saved.
 
-Usage:
+Usage (needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set):
     python3 sat_parser.py <details.html> <score_report.pdf> --out report.json
 """
 import argparse
-import csv
-import io
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -26,100 +25,67 @@ from datetime import datetime
 
 import pdfplumber
 
-ITEM_BANK_SHEET_ID = "1aGadmWgpDhqBjZi-ypMRt6iNgF-vfbqpdjWmIWo_PFI"
-ITEM_BANK_GID = "0"
-
-DOMAIN_NAMES = {
-    "CAS": "Craft and Structure",
-    "IAI": "Information and Ideas",
-    "SEC": "Standard English Conventions",
-    "EOI": "Expression of Ideas",
-    "ALG": "Algebra",
-    "ADV": "Advanced Math",
-    "PSD": "Problem-Solving and Data Analysis",
-    "GTR": "Geometry and Trigonometry",
-}
-
-# Numeric domain codes, from Michael's SkillNames&Codes.xlsx ("Dom #" column).
-# Reading & Writing and Math each number their own domains 01-04.
-DOMAIN_NUM_CODES = {
-    "CAS": "01", "IAI": "02", "SEC": "03", "EOI": "04",
-    "ALG": "01", "ADV": "02", "PSD": "03", "GTR": "04",
-}
-
-# Numeric skill codes ("Skill code" column): domain#.skill#, skill# counting
-# sequentially across all of that section's domains (not reset per domain).
-SKILL_NUM_CODES = {
-    # Reading & Writing
-    "WIC": "01.01", "TSP": "01.02", "CTC": "01.03",
-    "CID": "02.04", "COE": "02.05", "INF": "02.06",
-    "BND": "03.07", "FSS": "03.08",
-    "TRN": "04.09", "RSY": "04.10",
-    # Math
-    "LOV": "01.01", "LNF": "01.02", "LTV": "01.03", "SLE": "01.04", "LIQ": "01.05",
-    "NLF": "02.06", "NES": "02.07", "EQE": "02.08",
-    "RRP": "03.09", "PCT": "03.10", "CSD": "03.11", "MSC": "03.12",
-    "PRB": "03.13", "IME": "03.14", "ESE": "03.15",
-    "AVL": "04.16", "LAT": "04.17", "RTT": "04.18", "CRC": "04.19",
-}
-
-# Skill-code -> full name, from Michael's SkillNames&Codes.xlsx (authoritative).
-SKILL_NAMES = {
-    # Reading & Writing
-    "WIC": "Words in Context",
-    "TSP": "Text Structure & Purpose",
-    "CTC": "Cross-Text Connections",
-    "CID": "Central Ideas & Details",
-    "COE": "Command of Evidence",
-    "INF": "Inferences",
-    "BND": "Boundaries",
-    "FSS": "Form, Structure, & Sense",
-    "TRN": "Transitions",
-    "RSY": "Rhetorical Synthesis",
-    # Math
-    "LOV": "Linear equations in one variable",
-    "LNF": "Linear functions",
-    "LTV": "Linear equations in two variables",
-    "SLE": "Systems of two linear equations in two variables",
-    "LIQ": "Linear inequalities in one or two variables",
-    "NLF": "Nonlinear functions",
-    "NES": "Nonlinear equations in one variable and systems of equations in two variables",
-    "EQE": "Equivalent expressions",
-    "RRP": "Ratios, rates, proportional relationships, and units",
-    "PCT": "Percentages",
-    "CSD": "One-variable data: Distributions and measures of center and spread",
-    "MSC": "Two-variable data: Models and scatterplots",
-    "PRB": "Probability and conditional probability",
-    "IME": "Inference from sample statistics and margin of error",
-    "ESE": "Evaluating statistical claims: Observational studies and experiments",
-    "AVL": "Area and volume",
-    "LAT": "Lines, angles, and triangles",
-    "RTT": "Right triangles and trigonometry",
-    "CRC": "Circles",
-}
+# The per-question item bank (form / section / module / question number ->
+# correct answer, difficulty, domain, skill) lives in the public.item_bank
+# table. It's read here with the service-role key, the same way api/parse.py
+# reads everything else, because the table has no RLS policies on purpose:
+# only this trusted backend job ever needs the answer key.
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").rstrip("/")
+SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 DIFFICULTY_NAMES = {"1": "Easy", "2": "Medium", "3": "Hard"}
 
+# What the rest of this module expects a bank row to look like -- string
+# values under these keys, matching how the HTML rows are keyed (module and
+# question number are strings there too).
+_BANK_COLUMNS = "form_code,section,module,question_number,correct,difficulty,domain_code,skill_code"
+_PAGE_SIZE = 1000
 
-def _gviz_csv(query):
-    url = (
-        f"https://docs.google.com/spreadsheets/d/{ITEM_BANK_SHEET_ID}/gviz/tq"
-        f"?tqx=out:csv&gid={ITEM_BANK_GID}&tq={urllib.parse.quote(query)}"
-    )
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        text = resp.read().decode("utf-8")
-    return list(csv.DictReader(io.StringIO(text)))
+
+def _fetch_item_bank(filters):
+    """Read item_bank rows matching the given PostgREST filters, paging
+    through with Range headers so a growing bank never gets truncated."""
+    if not SUPABASE_URL or not SERVICE_ROLE_KEY:
+        raise RuntimeError("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set to read the item bank")
+    params = {"select": _BANK_COLUMNS, "order": "form_code,section,module,question_number", **filters}
+    url = f"{SUPABASE_URL}/rest/v1/item_bank?{urllib.parse.urlencode(params)}"
+    rows = []
+    start = 0
+    while True:
+        req = urllib.request.Request(url, headers={
+            "apikey": SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
+            "Range-Unit": "items",
+            "Range": f"{start}-{start + _PAGE_SIZE - 1}",
+        })
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            page = json.loads(resp.read().decode("utf-8"))
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            break
+        start += _PAGE_SIZE
+    return [
+        {
+            "FormCode": r["form_code"],
+            "Section": r["section"],
+            "Module": str(r["module"]),
+            "QuestionNumber": str(r["question_number"]),
+            "Correct": r["correct"],
+            "Difficulty": str(r["difficulty"]) if r["difficulty"] is not None else None,
+            "Domain": r["domain_code"],
+            "Skill": r["skill_code"],
+        }
+        for r in rows
+    ]
 
 
 def fetch_module1_bank():
     """All FormCodes' Module-1 rows (fixed/non-adaptive, used to identify FormCode)."""
-    rows = _gviz_csv("select A,C,D,E,F,G where E = 1")
-    return rows
+    return _fetch_item_bank({"module": "eq.1"})
 
 
 def fetch_full_bank(form_code):
-    rows = _gviz_csv(f"select * where C = '{form_code}'")
-    return rows
+    return _fetch_item_bank({"form_code": f"eq.{form_code}"})
 
 
 def parse_details_html(path):

@@ -55,9 +55,23 @@ truth, not memory — read the relevant files before changing anything.
 
 ## Data model
 
-Four content tables plus `profiles`, all in `public`. `domains`/`skills`
-are static reference tables (8 domains, 29 skills, official Digital SAT
-codes) seeded once and rarely touched.
+Four content tables plus `profiles` and `item_bank`, all in `public`.
+`domains`/`skills` are static reference tables (8 domains, 29 skills,
+official Digital SAT codes) seeded once and rarely touched.
+
+`item_bank` is the per-question answer key for every supported practice
+form (`form_code` SDB304–SDB311 = Practice Tests 4–11 as of Sept 2026):
+one row per (form, section, module, question number) with the correct
+answer, difficulty 1–3, and domain/skill codes. Module 2 and 3 are the
+easier/harder adaptive variants of the second module. The scorer
+identifies which form a student took by matching their Module 1 answer
+key against it, then fills in difficulty/domain/skill for each question
+(MyPractice's saved page only carries those in tooltips for rows that
+were on screen). RLS is on with no policies, so only the service-role
+scorer can read it — students never see answer keys. When College Board
+adds a practice test, insert its rows here; nothing else needs to change.
+(Until Sept 2026 this lived in a Google Sheet the parser fetched at
+runtime; that dependency is gone.)
 
 | Table | Key columns | Notes |
 |---|---|---|
@@ -131,7 +145,7 @@ app/
   test/[id]/route.ts Branded score report (standalone HTML, bypasses app layout)
 api/
   parse.py           Vercel Python function: downloads files, runs sat_parser, writes DB + Storage
-  sat_parser.py      Parsing/scoring logic (HTML + PDF + Google Sheets item bank -> report JSON)
+  sat_parser.py      Parsing/scoring logic (HTML + PDF + item_bank table -> report JSON)
 lib/
   supabase/          Browser/server Supabase client factories
   report-template/   skeleton.ts / script.ts / logo.ts — verbatim assets for the branded report,
