@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { Attempt } from "@/lib/types";
+import { deleteAttempt } from "./actions";
 
 export type AttemptRow = Attempt & { profiles: { full_name: string | null } | null };
 
@@ -27,12 +28,31 @@ function lastName(fullName: string | null | undefined): string | null {
 export function AttemptsTable({
   attempts,
   isTutor,
+  canDelete = false,
 }: {
   attempts: AttemptRow[];
   isTutor: boolean;
+  canDelete?: boolean;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("test_date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [isPending, startTransition] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  function handleDelete(a: AttemptRow) {
+    const who = a.profiles?.full_name ? ` for ${a.profiles.full_name}` : "";
+    const when = new Date(a.test_date).toLocaleDateString();
+    const ok = window.confirm(
+      `Delete "${a.test_name}"${who} (${when})?\n\nThis permanently removes the scored report and the uploaded files. It can't be undone.`
+    );
+    if (!ok) return;
+    setDeletingId(a.id);
+    startTransition(async () => {
+      const result = await deleteAttempt(a.id);
+      setDeletingId(null);
+      if (result.error) window.alert(result.error);
+    });
+  }
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -124,6 +144,11 @@ export function AttemptsTable({
               dir={sortDir}
               onSort={handleSort}
             />
+            {canDelete && (
+              <th className="px-4 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
@@ -161,6 +186,18 @@ export function AttemptsTable({
               <td className="px-4 py-3 text-sm text-gray-600">
                 {a.processed_at ? new Date(a.processed_at).toLocaleString() : "—"}
               </td>
+              {canDelete && (
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(a)}
+                    disabled={isPending && deletingId === a.id}
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:border-red-300 hover:bg-red-50 disabled:opacity-60"
+                  >
+                    {isPending && deletingId === a.id ? "Deleting…" : "Delete"}
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

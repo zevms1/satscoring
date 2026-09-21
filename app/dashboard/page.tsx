@@ -14,7 +14,11 @@ export default async function DashboardPage() {
     .select("role")
     .eq("id", user?.id ?? "")
     .single();
-  const isTutor = (ownProfile as { role: string } | null)?.role !== "student";
+  const role = (ownProfile as { role: string } | null)?.role;
+  const isTutor = role !== "student";
+  // Deleting a test is admin-only for now (tutors can see everything but
+  // not remove it); the server action re-checks this.
+  const isAdmin = role === "admin";
 
   // No student_id filter here on purpose -- RLS already scopes this to just
   // the signed-in student's own rows, or every student's rows for a tutor/
@@ -51,7 +55,7 @@ export default async function DashboardPage() {
             </p>
           </div>
         ) : (
-          <AttemptsTable attempts={attempts} isTutor={isTutor} />
+          <AttemptsTable attempts={attempts} isTutor={isTutor} canDelete={isAdmin} />
         )}
       </main>
     </>
