@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type DragEvent, type ReactNode } from "react";
 import { uploadAttempt } from "./actions";
+import { Screenshot } from "./Screenshot";
 
 export function UploadForm({
   isTutor = false,
@@ -81,7 +82,14 @@ export function UploadForm({
             <ol className="list-decimal space-y-2 pl-5">
               <li>
                 At the top of the Score Details page, click{" "}
-                <span className="font-medium text-gray-700">Download Score Report</span>.
+                <span className="font-medium text-gray-700">Download Score Report</span>.{" "}
+                <Screenshot
+                  src="/upload-help/download-score-report.webp"
+                  width={1785}
+                  height={881}
+                  alt="The top of the MyPractice Score Details page, with the Download Score Report button circled"
+                  caption="Step 2: the Download Score Report button at the top of the Score Details page"
+                />
               </li>
               <li>The PDF saves to your device. Upload that file here.</li>
             </ol>
@@ -109,7 +117,14 @@ export function UploadForm({
                   </li>
                   <li>
                     In the &quot;View&quot; options, click{" "}
-                    <span className="font-medium text-gray-700">All</span>
+                    <span className="font-medium text-gray-700">All</span>{" "}
+                    <Screenshot
+                      src="/upload-help/questions-overview.webp"
+                      width={1612}
+                      height={976}
+                      alt="The Questions Overview section with the Show Correct Answers toggle turned on and the All view option circled"
+                      caption="Step 3: the Show Correct Answers toggle and the All view option under Questions Overview"
+                    />
                   </li>
                 </ul>
                 <p className="mt-1 text-gray-500">
