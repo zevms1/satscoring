@@ -3,8 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/lib/SiteHeader";
 import { BTN } from "@/lib/ui";
 import { SECTION_ORDER, SECTION_SHORT, type Section, type TestForm } from "@/lib/sat-forms";
-import { AttemptsTable, type AttemptRow } from "./AttemptsTable";
 import { FormRowActions } from "./FormRowActions";
+import { AttemptRowActions } from "./AttemptRowActions";
+import { PageNav } from "./PageNav";
+import { ScorecardFilters, type ScorecardFacet } from "./ScorecardFilters";
+import {
+  DEFAULT_SCORECARDS_VIEW,
+  SCORECARD_SIZES,
+  STATUS_LABELS,
+  hasScorecardFilters,
+  parseScorecardsView,
+  periodStart,
+  scorecardSortDefaultDesc,
+  scorecardsUrl,
+  scorecardsUrlTemplate,
+  type ScorecardSort,
+  type ScorecardsView,
+} from "./scorecardsUrl";
 
 // Dashboard split into tabs, mirroring the ACT app: Scorecards (every
 // role) and, for admins, the Test repository. A student sees only their
@@ -19,7 +34,7 @@ const TABS: { key: Tab; label: string }[] = [
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -36,6 +51,8 @@ export default async function DashboardPage({
   const isTutor = role !== "student";
   const isAdmin = role === "admin";
   const tab: Tab = isAdmin && TABS.some((t) => t.key === params.tab) ? (params.tab as Tab) : "attempts";
+  const view = parseScorecardsView(params);
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
   return (
     <>
@@ -79,34 +96,205 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {tab === "tests" ? <TestsTab sort={params.sort} dir={params.dir} /> : <ScorecardsTab isTutor={isTutor} isAdmin={isAdmin} />}
+        {tab === "tests" ? (
+          <TestsTab sort={one(params.sort)} dir={one(params.dir)} />
+        ) : (
+          <ScorecardsTab isTutor={isTutor} isAdmin={isAdmin} view={view} />
+        )}
       </main>
     </>
   );
 }
 
-async function ScorecardsTab({ isTutor, isAdmin }: { isTutor: boolean; isAdmin: boolean }) {
-  const supabase = await createClient();
-  // No student_id filter here on purpose -- RLS already scopes this to just
-  // the signed-in student's own rows, or every student's rows for a tutor/
-  // admin (see is_tutor() in the schema). Tutors get the profiles(full_name)
-  // join below so multiple students' tests are distinguishable.
-  const { data } = await supabase
-    .from("attempts")
-    .select(
-      "id, test_name, test_date, status, rw_scaled, math_scaled, total_scaled, error_message, processed_at, student_id, profiles(full_name)"
-    )
-    .order("test_date", { ascending: false });
-  const attempts = data as unknown as AttemptRow[] | null;
+type ScorecardRow = {
+  id: string;
+  test_name: string;
+  test_date: string;
+  status: string;
+  rw_scaled: number | null;
+  math_scaled: number | null;
+  total_scaled: number | null;
+  error_message: string | null;
+  processed_at: string | null;
+  student_id: string;
+  form_code: string | null;
+  profiles: { sort_name: string | null; full_name: string | null } | null;
+};
 
-  if (!attempts || attempts.length === 0) {
-    return (
-      <div className="mt-8 rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-        <p className="text-gray-600">No practice tests yet. Upload your MyPractice results to get started.</p>
-      </div>
-    );
+async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isAdmin: boolean; view: ScorecardsView }) {
+  const supabase = await createClient();
+  // A student's own list has no chips, so the URL's filters are ignored.
+  const v: ScorecardsView = isTutor ? view : { ...DEFAULT_SCORECARDS_VIEW, sort: view.sort, dir: view.dir, page: view.page, size: view.size };
+  const desc = v.dir === "desc";
+  const filtered = hasScorecardFilters(v);
+
+  // Every row, light, for the chips (RLS already scopes tutors to all
+  // students and a student to themselves).
+  const facets: ScorecardFacet[] = [];
+  if (isTutor) {
+    const chunk = 1000;
+    for (let start = 0; ; start += chunk) {
+      const { data } = await supabase
+        .from("attempts")
+        .select("id, student_id, form_code, test_name, status, test_date, profiles(sort_name, full_name)")
+        .order("test_date", { ascending: false })
+        .range(start, start + chunk - 1);
+      for (const r of (data ?? []) as unknown as ScorecardRow[]) {
+        facets.push({
+          id: r.id,
+          student_id: r.student_id,
+          student_name: r.profiles?.sort_name ?? r.profiles?.full_name ?? "",
+          form_code: r.form_code,
+          test_name: r.test_name,
+          status: r.status,
+          test_date: r.test_date,
+        });
+      }
+      if (!data || data.length < chunk) break;
+    }
   }
-  return <AttemptsTable attempts={attempts} isTutor={isTutor} canDelete={isAdmin} />;
+
+  // The same filters narrow the count and the page. PostgREST refuses a
+  // range past the end (a stale page number in the URL) rather than
+  // returning an empty page, so the count comes first and the page is
+  // clamped to it.
+  // Typed loosely on purpose: threading Supabase's builder generics through
+  // a helper blows TypeScript's instantiation depth.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const withFilters = <Q,>(start: Q): Q => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = start;
+    if (v.student.length) q = q.in("student_id", v.student);
+    if (v.test.length) {
+      // A test chip is a form code, or "name:<MyPractice name>" for a test
+      // the scorer hasn't identified.
+      const codes = v.test.filter((t) => !t.startsWith("name:"));
+      const names = v.test.filter((t) => t.startsWith("name:")).map((t) => t.slice(5));
+      const parts: string[] = [];
+      if (codes.length) parts.push(`form_code.in.(${codes.map((c) => `"${c}"`).join(",")})`);
+      if (names.length) parts.push(`test_name.in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).join(",")})`);
+      q = q.or(parts.join(","));
+    }
+    if (v.status.length) q = q.in("status", v.status);
+    if (v.period) q = q.gte("test_date", periodStart(v.period));
+    return q as Q;
+  };
+
+  const { count } = await withFilters(supabase.from("attempts").select("id", { count: "exact", head: true }));
+  const total = count ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / v.size));
+  const page = Math.min(v.page, pageCount);
+  const from = (page - 1) * v.size;
+
+  let q = withFilters(
+    supabase
+      .from("attempts")
+      .select(
+        "id, test_name, test_date, status, rw_scaled, math_scaled, total_scaled, error_message, processed_at, student_id, form_code, profiles(sort_name, full_name)"
+      )
+  );
+  const asc = !desc;
+  if (v.sort === "student") q = q.order("profiles(sort_name)", { ascending: asc }).order("test_date", { ascending: false });
+  else if (v.sort === "test") q = q.order("test_name", { ascending: asc }).order("test_date", { ascending: false });
+  else if (v.sort === "rw") q = q.order("rw_scaled", { ascending: asc, nullsFirst: false }).order("test_date", { ascending: false });
+  else if (v.sort === "math") q = q.order("math_scaled", { ascending: asc, nullsFirst: false }).order("test_date", { ascending: false });
+  else if (v.sort === "total") q = q.order("total_scaled", { ascending: asc, nullsFirst: false }).order("test_date", { ascending: false });
+  else if (v.sort === "processed") q = q.order("processed_at", { ascending: asc, nullsFirst: false });
+  else q = q.order("test_date", { ascending: asc }).order("created_at", { ascending: asc });
+  const { data } = await q.range(from, from + v.size - 1);
+  const rows = (data ?? []) as unknown as ScorecardRow[];
+
+  // Clicking the active column flips direction; any other column starts
+  // in its own default direction. Every sort goes back to page 1.
+  const sortLink = (key: ScorecardSort) =>
+    scorecardsUrl({
+      ...v,
+      sort: key,
+      dir: v.sort === key ? (desc ? "asc" : "desc") : scorecardSortDefaultDesc(key) ? "desc" : "asc",
+      page: 1,
+    });
+  const arrow = (key: ScorecardSort) => (v.sort === key ? (desc ? " ▼" : " ▲") : "");
+  const th = (key: ScorecardSort, label: string, align: "left" | "right" = "left") => (
+    <th className={`px-3 py-2 text-${align} font-bold whitespace-nowrap${v.sort === key ? " text-brand" : ""}`}>
+      <Link href={sortLink(key)} className="hover:text-gray-900">
+        {label}
+        {arrow(key)}
+      </Link>
+    </th>
+  );
+
+  const countLine =
+    total === 0
+      ? filtered
+        ? "0 tests match these filters."
+        : "No practice tests yet. Upload your MyPractice results to get started."
+      : rows.length === 0
+        ? `Nothing on this page. ${total} test${total === 1 ? "" : "s"}${filtered ? " match the filters" : ""}.`
+        : `Showing ${from + 1}–${from + rows.length} of ${total} test${total === 1 ? "" : "s"}${filtered ? " matching the filters" : ""}.`;
+
+  const statusStyle: Record<string, string> = {
+    uploaded: "bg-gray-100 text-gray-700",
+    processing: "bg-mid-soft text-mid",
+    completed: "bg-good-soft text-good",
+    failed: "bg-weak-soft text-weak",
+  };
+
+  return (
+    <div className="mt-6">
+      {isTutor && <ScorecardFilters facets={facets} view={v} />}
+      <p className="mt-2 text-xs text-gray-500">{countLine}</p>
+      {rows.length > 0 && (
+        <div className="mt-2 overflow-x-auto rounded-md border border-gray-200 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+                {isTutor && th("student", "Student")}
+                {th("test", "Test")}
+                {th("date", "Date")}
+                {th("rw", "R&W", "right")}
+                {th("math", "Math", "right")}
+                {th("total", "Total", "right")}
+                <th className="px-3 py-2 text-left font-bold">Status</th>
+                {th("processed", "Processed on")}
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {rows.map((a) => {
+                const href = a.status === "completed" ? `/test/${a.id}` : null;
+                const cell = (content: React.ReactNode) => (href ? <Link href={href} className="block">{content}</Link> : content);
+                const student = a.profiles?.sort_name ?? a.profiles?.full_name ?? "—";
+                const label = `${a.test_name} (${new Date(a.test_date).toLocaleDateString()})${isTutor ? ` for ${a.profiles?.full_name ?? "this student"}` : ""}`;
+                return (
+                  <tr key={a.id} className="hover:bg-gray-50">
+                    {isTutor && <td className="whitespace-nowrap px-3 py-2">{cell(student)}</td>}
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{href ? <Link href={href} className="block text-brand hover:underline">{a.test_name}</Link> : <span className="text-gray-900">{a.test_name}</span>}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">{cell(new Date(a.test_date).toLocaleDateString())}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">{cell(a.rw_scaled ?? <span className="text-gray-300">—</span>)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">{cell(a.math_scaled ?? <span className="text-gray-300">—</span>)}</td>
+                    <td className="px-3 py-2 text-right font-bold tabular-nums text-gray-900">{cell(a.total_scaled || <span className="font-normal text-gray-300">—</span>)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <span
+                        title={a.status === "failed" ? a.error_message ?? undefined : undefined}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle[a.status] ?? "bg-gray-100 text-gray-700"}`}
+                      >
+                        {STATUS_LABELS[a.status as keyof typeof STATUS_LABELS] ?? a.status}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">{a.processed_at ? new Date(a.processed_at).toLocaleString() : "—"}</td>
+                    <td className="px-3 py-2 text-right">
+                      <AttemptRowActions attemptId={a.id} label={label} status={a.status} isAdmin={isAdmin} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {total > 0 && <PageNav page={page} pageCount={pageCount} size={v.size} sizes={SCORECARD_SIZES} hrefTemplate={scorecardsUrlTemplate(v)} />}
+    </div>
+  );
 }
 
 type FormSort = "form" | "attempts" | "added";
