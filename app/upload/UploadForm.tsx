@@ -62,38 +62,67 @@ export function UploadForm({
         label="Score Details Page HTML"
         accept=".html,.htm"
         hint={
-          <ol className="list-decimal space-y-1 pl-4">
-            <li>
-              On the Score Details page, scroll down until you see &quot;Questions
-              Overview.&quot;
-            </li>
-            <li>
-              Turn ON the &quot;Show Correct Answers&quot; toggle and click &quot;All&quot;
-              in the &quot;View&quot; options.
-            </li>
-            <li>
-              Ensure the Questions Overview table is sorted by ascending question number,
-              as indicated by a &quot;^&quot; next to &quot;Question&quot; (this is the
-              default sort, so just don&apos;t change it by clicking &quot;Your
-              Answer&quot; or &quot;Domain&quot; in the table&apos;s header).
-            </li>
-            <li>
-              Once these options are selected, hit Ctrl+S (or Cmd+S) and save the page as
-              &quot;Webpage, Complete.&quot;
-            </li>
-            <li>
-              Your browser saves two things: a single <span className="font-medium">.html</span>{" "}
-              file (named something like &quot;MyPractice - SAT Practice 7 - ... -
-              Details.html&quot;) and a folder with the same name ending in
-              &quot;_files.&quot; Upload <span className="font-medium">only the .html file</span>{" "}
-              here. The folder isn&apos;t needed, so you can delete it right away.
-            </li>
-            <li>
-              After you click &quot;Upload and score&quot; and your scored report opens,
-              the file is saved to your account. You can then delete the .html file (and
-              the Score Report PDF) from your device.
-            </li>
-          </ol>
+          <div className="space-y-2">
+            <p>
+              <span className="font-semibold">NOTE:</span> You must use Chrome, Edge, or
+              Firefox to download these files. Safari can&apos;t save the page in the
+              format needed. Also, some of these instructions will vary slightly depending
+              on whether you&apos;re using a Mac or PC.
+            </p>
+            <ol className="list-decimal space-y-2 pl-4">
+              <li>
+                On the Score Details page, scroll down until you see &quot;Questions
+                Overview&quot; and make the following two changes:
+                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+                  <li>Turn ON the &quot;Show Correct Answers&quot; toggle</li>
+                  <li>In the &quot;View&quot; options, click &quot;All&quot;</li>
+                </ol>
+                <p className="mt-1">
+                  Also, ensure the Questions Overview table is sorted by ascending question
+                  number, as indicated by a &quot;^&quot; next to &quot;Question&quot; (this
+                  is the default sort, so just don&apos;t change it by clicking any of the
+                  other column headers like &quot;Your Answer&quot; or &quot;Domain&quot;).
+                </p>
+              </li>
+              <li>
+                Once the above steps are done, hit Ctrl+S (or Cmd+S) to open a &quot;Save
+                As&quot; or &quot;Save Page As&quot; window. In this window:
+                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+                  <li>
+                    Select a location where the files will be easy to find, such as your
+                    desktop or downloads folder
+                  </li>
+                  <li>
+                    In the &quot;Save as type,&quot; you must select &quot;Webpage,
+                    Complete.&quot;
+                  </li>
+                </ol>
+                <p className="mt-1">
+                  Once these options are set, click &quot;Save,&quot; and your browser will
+                  download two things:
+                </p>
+                <ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+                  <li>
+                    A single .html file (named something like &quot;MyPractice - SAT
+                    Practice 7 - ... - Details.html&quot;)
+                  </li>
+                  <li>A folder with the same name ending in &quot;_files&quot;</li>
+                </ol>
+              </li>
+              <li>
+                Once the files are downloaded, you need to upload{" "}
+                <span className="font-semibold">ONLY the single .html file</span>; click the
+                blue &quot;Choose a file&quot; below or just drag and drop the .html file to
+                the area below. (The folder that was downloaded isn&apos;t needed; it is safe
+                to delete it.)
+              </li>
+              <li>
+                After you click &quot;Upload and score&quot; and your score report opens,
+                the file is saved to your account. You can then delete the .html file (and
+                the Score Report PDF, if you wish) from your device.
+              </li>
+            </ol>
+          </div>
         }
         fileName={fileNames.html}
         onChange={(name) => setFileNames((f) => ({ ...f, html: name }))}
@@ -150,7 +179,7 @@ function FileField({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <p className="mt-1 text-xs text-gray-500">{hint}</p>
+      <div className="mt-1 text-xs text-gray-500">{hint}</div>
 
       <div
         role="button"
