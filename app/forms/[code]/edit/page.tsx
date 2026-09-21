@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/lib/SiteHeader";
+import { AdminChrome } from "@/app/dashboard/AdminChrome";
 import { loadForm, loadReference, requireAdminPage } from "@/lib/forms-data";
 import { EditFormClient, type AttemptSummary } from "./EditFormClient";
 
@@ -26,11 +27,12 @@ export default async function EditFormPage({ params }: { params: Promise<{ code:
   return (
     <>
       <SiteHeader email={user.email ?? null} />
-      <main className="mx-auto max-w-5xl px-4 py-10">
-        <Link href={`/forms/${form.form_code}`} className="text-sm font-medium text-brand hover:underline">
+      <main className="mx-auto max-w-5xl px-4 py-5">
+        <AdminChrome active="tests" />
+        <Link href={`/forms/${form.form_code}`} className="mt-5 inline-block text-sm font-medium text-brand hover:underline">
           &larr; Back to {form.label}
         </Link>
-        <h1 className="mt-3 text-xl font-bold text-gray-900">
+        <h1 className="mt-2 text-xl font-bold text-gray-900">
           Edit {form.label} <span className="ml-1 text-base font-medium text-gray-500">{form.form_code}</span>
         </h1>
         <p className="mt-1 text-sm text-gray-500">

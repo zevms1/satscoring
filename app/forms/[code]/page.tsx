@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/lib/SiteHeader";
+import { AdminChrome } from "@/app/dashboard/AdminChrome";
 import { BTN } from "@/lib/ui";
 import { loadForm, loadReference, requireAdminPage } from "@/lib/forms-data";
 import { DIFFICULTY_LABELS, MODULES, MODULE_LABELS, SECTION_LABELS, SECTION_ORDER } from "@/lib/sat-forms";
@@ -21,11 +22,9 @@ export default async function ViewFormPage({ params }: { params: Promise<{ code:
   return (
     <>
       <SiteHeader email={user.email ?? null} />
-      <main className="mx-auto max-w-5xl px-4 py-10">
-        <Link href="/dashboard?tab=tests" className="text-sm font-medium text-brand hover:underline">
-          &larr; Back to test repository
-        </Link>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+      <main className="mx-auto max-w-5xl px-4 py-5">
+        <AdminChrome active="tests" />
+        <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               {form.label} <span className="ml-1 text-base font-medium text-gray-500">{form.form_code}</span>

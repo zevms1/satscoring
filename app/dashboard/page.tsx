@@ -5,6 +5,7 @@ import { SiteHeader } from "@/lib/SiteHeader";
 import { BTN } from "@/lib/ui";
 import { SECTION_ORDER, SECTION_SHORT, type Section, type TestForm } from "@/lib/sat-forms";
 import { FormRowActions } from "./FormRowActions";
+import { AdminChrome, ADMIN_TABS, type AdminTab } from "./AdminChrome";
 import { StudentsClient, type StudentRow } from "./StudentsClient";
 import { ACCESS_MESSAGES, getAccess } from "@/lib/access";
 import { AttemptRowActions } from "./AttemptRowActions";
@@ -28,12 +29,7 @@ import {
 // role) and, for admins, the Test repository. A student sees only their
 // own scored tests, with no tab bar. The active tab comes from ?tab=.
 
-type Tab = "attempts" | "students" | "tests";
-const TABS: { key: Tab; label: string }[] = [
-  { key: "attempts", label: "Scorecards" },
-  { key: "students", label: "Students" },
-  { key: "tests", label: "Test repository" },
-];
+type Tab = AdminTab;
 
 export default async function DashboardPage({
   searchParams,
@@ -50,7 +46,7 @@ export default async function DashboardPage({
   // A student who isn't on the roster, or is inactive, is normally turned
   // away at sign-in; a session from before that gate existed lands here.
   const blocked = !access.allowed;
-  const tab: Tab = isAdmin && TABS.some((t) => t.key === params.tab) ? (params.tab as Tab) : "attempts";
+  const tab: Tab = isAdmin && ADMIN_TABS.some((t) => t.key === params.tab) ? (params.tab as Tab) : "attempts";
   const view = parseScorecardsView(params);
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const newStudent = one(params.new) === "1";
@@ -58,37 +54,9 @@ export default async function DashboardPage({
   return (
     <>
       <SiteHeader email={access.email} />
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-5">
         {isAdmin ? (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">Admin dashboard</h1>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/upload" className={BTN.primary}>
-                  + Upload a test
-                </Link>
-                <Link href="/dashboard?tab=students&new=1" className={BTN.secondary}>
-                  + New student
-                </Link>
-                <Link href="/forms/new" className={BTN.secondary}>
-                  + New test form
-                </Link>
-              </div>
-            </div>
-            <nav className="mt-4 flex flex-wrap gap-1 border-b border-gray-200">
-              {TABS.map((t) => (
-                <Link
-                  key={t.key}
-                  href={t.key === "attempts" ? "/dashboard" : `/dashboard?tab=${t.key}`}
-                  className={`-mb-px px-4 py-2 text-sm font-medium ${
-                    tab === t.key ? "border-b-2 border-brand text-brand" : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {t.label}
-                </Link>
-              ))}
-            </nav>
-          </>
+          <AdminChrome active={tab} />
         ) : (
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -266,7 +234,7 @@ async function ScorecardsTab({ isTutor, isAdmin, view }: { isTutor: boolean; isA
   };
 
   return (
-    <div className="mt-6">
+    <div className="mt-4">
       {isTutor && <ScorecardFilters facets={facets} view={v} />}
       <p className="mt-2 text-xs text-gray-500">{countLine}</p>
       {rows.length > 0 && (
@@ -383,7 +351,7 @@ async function TestsTab({ sort, dir }: { sort?: string; dir?: string }) {
   );
 
   return (
-    <section className="mt-6">
+    <section className="mt-4">
       <p className="text-sm text-gray-500">
         Every practice-test form the scorer knows: its answer key plus each question&apos;s difficulty, domain and
         skill. Edit a form when College Board changes it, then re-score the tests that use it.
