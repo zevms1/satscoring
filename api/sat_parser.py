@@ -107,7 +107,7 @@ DIFFICULTY_NAMES = {"1": "Easy", "2": "Medium", "3": "Hard"}
 # What the rest of this module expects a bank row to look like -- string
 # values under these keys, matching how the HTML rows are keyed (module and
 # question number are strings there too).
-_BANK_COLUMNS = "form_code,section,module,question_number,correct,difficulty,domain_code,skill_code"
+_BANK_COLUMNS = "question_key,eqb_id,form_code,section,module,question_number,correct,difficulty,domain_code,skill_code"
 _PAGE_SIZE = 1000
 
 
@@ -135,6 +135,8 @@ def _fetch_item_bank(filters):
         start += _PAGE_SIZE
     return [
         {
+            "QuestionKey": r["question_key"],
+            "EQB_ID": r["eqb_id"],
             "FormCode": r["form_code"],
             "Section": r["section"],
             "Module": str(r["module"]),
