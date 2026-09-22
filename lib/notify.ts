@@ -67,7 +67,7 @@ export async function notifyAdminsOfUpload(opts: { attemptId: string; uploaderId
     let text: string;
     let body: string;
     if (a.status === "completed" && a.total_scaled != null) {
-      subject = `${student}: ${a.total_scaled} on ${formLabel}`;
+      subject = `New SAT upload: ${student} - ${formLabel}`;
       text = `${student} uploaded ${formLabel}${date ? ` (taken ${date})` : ""}.\nTotal ${a.total_scaled} · Reading & Writing ${a.rw_scaled ?? "—"} · Math ${a.math_scaled ?? "—"}\n${link}`;
       body = `
         <p><strong>${esc(student)}</strong> uploaded <strong>${esc(formLabel)}</strong>${date ? ` (taken ${esc(date)})` : ""}.</p>
@@ -85,7 +85,7 @@ export async function notifyAdminsOfUpload(opts: { attemptId: string; uploaderId
         <p style="color:#b00">${esc(a.error_message ?? "Unknown error")}</p>
         <p><a href="${opts.origin}/dashboard">Open the dashboard</a> to re-score or delete it.</p>`;
     } else {
-      subject = `${student} uploaded ${formLabel} (still processing)`;
+      subject = `New SAT upload: ${student} - ${formLabel} (still processing)`;
       text = `${student} uploaded a test. Scoring was still running when this was sent.\n${link}`;
       body = `
         <p><strong>${esc(student)}</strong> uploaded a test. Scoring was still running when this was sent.</p>
