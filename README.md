@@ -277,7 +277,12 @@ everything except the actual scoring step.
    paste in the Client ID/Secret from step 2.
 4. **Vercel**: import the repo, set env vars (`NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `INTERNAL_API_SECRET`), deploy.
+   `INTERNAL_API_SECRET`), deploy. Optional: `RESEND_API_KEY` (a
+   [Resend](https://resend.com) key) makes the app email every admin when a
+   student uploads a test, with the scores and a link to the scorecard; set
+   `RESEND_FROM` too once you have verified a sending domain (the default
+   `onboarding@resend.dev` sender only delivers to the Resend account owner).
+   Without the key, no email is sent and nothing else changes.
 5. **Supabase Auth URL config**: [Auth → URL Configuration](https://supabase.com/dashboard/project/zvvxmwnyrdzkrkbeftes/auth/url-configuration) —
    Site URL + Redirect URLs must point at the real production URL, not
    `localhost` (this bit us once — sign-in redirected to

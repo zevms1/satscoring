@@ -2,6 +2,8 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyAdminsOfUpload } from "@/lib/notify";
 import { createClient } from "@/lib/supabase/server";
 
 export async function uploadAttempt(formData: FormData) {
@@ -163,6 +165,9 @@ export async function uploadAttempt(formData: FormData) {
     // just show it as still working rather than incorrectly marking it failed.
     console.error("Parse request error", err);
   }
+
+  // Let the admins know, once the student's response has gone out.
+  after(() => notifyAdminsOfUpload({ attemptId, uploaderId: user.id, origin }));
 
   redirect(`/test/${attemptId}`);
 }
